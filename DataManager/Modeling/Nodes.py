@@ -36,6 +36,10 @@ def AddCartesian(conn,nodes,commit=True):
     cu.close
     if commit:
         conn.commit()
+        
+def GetNodesCoordiniate(conn):
+    df=pd.read_sql('SELECT * FROM Node_Coordinates',conn)
+    return df
             
 def Count():
     return False

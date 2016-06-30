@@ -38,8 +38,13 @@ class Model:
         self.materials.append(Material.Material(2.000E11, 0.3, 7849.0474, 1.17e-5))
         #H200x150x8x10
         self.sections.append(Section.Section(self.materials[0], 4.800E-3, 1.537E-7, 3.196E-5, 5.640E-6))
-        self.nodes.append(Node.Node(0, 0, 0))
-        self.nodes.append(Node.Node(5, 0, 0))
+        conn=sqlite3.connect(self.database)
+        nodesDf=dmn.GetNodesCoordiniate(conn)
+        conn.close()
+        for i in range(nodesDf.shape[0]):
+            n=nodesDf.ix[i]            
+            node=Node.Node(n['X'],n['Y'],n['Z'])
+            self.nodes.append(node)
         for i in range(len(self.nodes)-1):
             self.beams.append(Beam.Beam(self.nodes[i], self.nodes[i+1], self.sections[0]))
         #loads
@@ -388,7 +393,7 @@ class Model:
         #supports
         res1 = [True]*6
         res2 = [False]*6
-        res3 = [False,True, True, True, True, True ]
+        res3 = [False,True,True,True,True,True]
         nodes[0].SetRestraints(res1)
         nodes[1].SetRestraints(res2)
         #nodes[5].SetRestraints(res1)
@@ -405,7 +410,6 @@ class Model:
         try:
             dmn.CreateTable(conn,commit=False)
             dmn.AddCartesian(conn,ns,commit=False)
-            
             ddpm.CreateTable(conn,commit=False)
             ddpm.AddQuick(conn,'GB','Q345',commit=False)
             
@@ -418,10 +422,10 @@ class Model:
         
         
 if __name__=='__main__':     
-    file='F:\\Test\\Test.sqlite'
-    path='F:\\Test\\'
+    file='C:\\huan\\Test\\Test.sqlite'
+    path='C:\\huan\\Test\\'
     m=Model(file)
-    m.Test()
+#    m.Test()
     m.Assemble(path)
     m.SolveLinear(path)
 #    m.SolveModal(path,k=1)
