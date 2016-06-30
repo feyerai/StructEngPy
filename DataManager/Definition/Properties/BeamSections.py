@@ -5,6 +5,7 @@ Created on Tue Jun 28 22:13:07 2016
 @author: HZJ
 """
 import DataManager.Definition.Properties.SectionParameters as sp
+import pandas as pd
 
 def CreateTable(conn,commit=True):
     cu=conn.cursor()
@@ -97,4 +98,12 @@ def AddQuick(conn,material,profile,commit=True):
     cu.close()
     if commit:
         conn.commit()
+        
+def GetBeamSections(conn):
+    """
+    conn: sqlite database connection.\n
+    return: dataframe of beam sections
+    """
+    df=pd.read_sql('SELECT * FROM Beam_Prop_General',conn)
+    return df
     

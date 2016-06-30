@@ -10,9 +10,11 @@ import scipy
 import scipy.sparse as sp
 import scipy.sparse.linalg as sl
 from scipy import linalg
+import pandas as pd
 import Material,Section,Node,Beam
 import DataManager.Definition as dd
 import DataManager.Modeling.Nodes as dmn
+import DataManager.Modeling.Beams as dmb
 import DataManager.Definition.Properties.Materials as ddpm
 import DataManager.Definition.Properties.BeamSections as ddpb
 
@@ -34,19 +36,27 @@ class Model:
         self.sections=[]
         self.nodes=[]
         self.beams=[]
-        
-        self.materials.append(Material.Material(2.000E11, 0.3, 7849.0474, 1.17e-5))
-        #H200x150x8x10
-        self.sections.append(Section.Section(self.materials[0], 4.800E-3, 1.537E-7, 3.196E-5, 5.640E-6))
         conn=sqlite3.connect(self.database)
-        nodesDf=dmn.GetNodesCoordiniate(conn)
-        conn.close()
-        for i in range(nodesDf.shape[0]):
-            n=nodesDf.ix[i]            
+       
+        nodeDf=dmn.GetNodesCoordiniate(conn)
+        materialDf=pd.merge(ddpm.GetMaterialBasic(conn),ddpm.GetSteel(conn),on='Name')
+        sectionDf=ddpb.GetBeamSections(conn)        
+        beamDf=pd.merge(dmb.GetBeams(conn),dmb.GetSections(conn),on='Name')
+        
+        for i in range(nodeDf.shape[0]):
+            n=nodeDf.ix[i]            
             node=Node.Node(n['X'],n['Y'],n['Z'])
             self.nodes.append(node)
-        for i in range(len(self.nodes)-1):
-            self.beams.append(Beam.Beam(self.nodes[i], self.nodes[i+1], self.sections[0]))
+        
+        for i in range(materialDf.shape[0]):
+            self.materials.append(Material.Material(materialDf['E1'], materialDf['G12'], materialDf['UnitWeight'], materialDf['A1']))
+            
+        for i in range(sectionDf.shape[0]):
+            self.sections.append(Section.Section(self.materials[0], 4.800E-3, 1.537E-7, 3.196E-5, 5.640E-6))
+        
+        for i in range(beamDf.shape[0]):
+            b=beamDf.ix[i]
+            self.beams.append(Beam.Beam(b['NodeI'], b['NodeJ'], b['Section']))
         #loads
         #double f[6] = { 0,0,-100000,0,0,0 }
         qi=(0,0,-10,0,0,0)
@@ -422,8 +432,8 @@ class Model:
         
         
 if __name__=='__main__':     
-    file='C:\\huan\\Test\\Test.sqlite'
-    path='C:\\huan\\Test\\'
+    file='F:Test\\Test.sqlite'
+    path='F:huan\\Test\\'
     m=Model(file)
 #    m.Test()
     m.Assemble(path)
