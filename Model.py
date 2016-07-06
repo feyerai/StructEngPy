@@ -17,6 +17,7 @@ import DataManager.Modeling.Nodes as dmn
 import DataManager.Modeling.Beams as dmb
 import DataManager.Definition.Properties.Materials as ddpm
 import DataManager.Definition.Properties.BeamSections as ddpb
+import DataManager.Assembling as da
 
 class Model:
     def __init__(self,db):
@@ -38,7 +39,7 @@ class Model:
         self.beams=[]
         conn=sqlite3.connect(self.database)
        
-        nodeDf=dmn.GetNodesCoordiniate(conn)
+        nodeDf=da.GetNodesCoordiniate(conn)
         materialDf=pd.merge(ddpm.GetMaterialBasic(conn),ddpm.GetSteel(conn),on='Name')
         sectionDf=ddpb.GetBeamSections(conn)        
         beamDf=pd.merge(dmb.GetBeams(conn),dmb.GetSections(conn),on='Name')
@@ -432,8 +433,8 @@ class Model:
         
         
 if __name__=='__main__':     
-    file='F:Test\\Test.sqlite'
-    path='F:huan\\Test\\'
+    file='C:\\huan\\Test\\Test.sqlite'
+    path='C:\\huan\\Test\\'
     m=Model(file)
 #    m.Test()
     m.Assemble(path)

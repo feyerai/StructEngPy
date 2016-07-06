@@ -64,21 +64,5 @@ def AddQuick(conn,std,grade,commit=True):
     cu.close
     if commit:
         conn.commit()
-        
-def GetMaterialBasic(conn):
-    """
-    conn: sqlite database connection.\n
-    return: dataframe of material basic mechanical
-    """
-    df=pd.read_sql('SELECT * FROM Material_Properties_Basic_Mechanical',conn)
-    return df
-    
-def GetSteel(conn):
-    """
-    conn: sqlite database connection.\n
-    return: dataframe of steel
-    """
-    df=pd.read_sql('SELECT * FROM Material_Properties_Steel',conn)
-    return df
             
             

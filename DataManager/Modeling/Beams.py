@@ -44,23 +44,7 @@ def AddBeams(conn,beams,commit=True):
     cu.close
     if commit:
         conn.commit()
-        
-def GetBeams(conn):
-    """
-    conn: sqlite database connection.\n
-    return: dataframe of beam
-    """
-    df=pd.read_sql('SELECT * FROM Connectivity_Beam',conn)
-    return df
-    
-def GetSections(conn):
-    """
-    conn: sqlite database connection.\n
-    return: dataframe of beam sections
-    """
-    df=pd.read_sql('SELECT * FROM Beam_Section_Assignments',conn)
-    return df
-            
+                    
 def Count():
     return False
     
