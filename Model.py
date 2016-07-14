@@ -12,6 +12,7 @@ import scipy.sparse.linalg as sl
 from scipy import linalg
 import pandas as pd
 import Material,Section,Node,Beam
+from DataManger import ModelData
 import DataManager.Definition as dd
 import DataManager.Modeling.Nodes as dmn
 import DataManager.Modeling.Beams as dmb
@@ -21,10 +22,11 @@ import DataManager.Assembling as da
 
 class Model:
     def __init__(self,db):
+        self.data=ModelData()
         self.database=db
         
     def Save(self):
-        return
+        self.data.Save(self.db)
 
     def Assemble(self,path):
         """
@@ -419,7 +421,7 @@ class Model:
             ID+=1
         conn=sqlite3.connect(self.database)
         try:
-            dmn.CreateTable(conn,commit=False)
+            dmn.CreateTable(self.data)
             dmn.AddCartesian(conn,ns,commit=False)
             ddpm.CreateTable(conn,commit=False)
             ddpm.AddQuick(conn,'GB','Q345',commit=False)

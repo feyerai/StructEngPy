@@ -7,62 +7,80 @@ Created on Fri Jun 24 16:32:51 2016
 
 import pandas as pd
 
-def CreateTable(conn,commit=True):
-    cu=conn.cursor()
-    sqls=[]
-    sqls.append(
-    'CREATE TABLE IF NOT EXISTS Material_Properties_General (\
-    Name TEXT UNIQUE PRIMARY KEY, \
-    Type TEXT, \
-    SymType TEXT, \
-    TempDepend TEXT, \
-    Color REAL)'
-    )
-    sqls.append(
-    'CREATE TABLE IF NOT EXISTS Material_Properties_Basic_Mechanical (\
-    Name TEXT UNIQUE PRIMARY KEY, \
-    UnitWeight REAL, \
-    UnitMass REAL, \
-    E1 REAL, \
-    G12 REAL, \
-    U12 REAL, \
-    A1 REAL)'
-    )
-    sqls.append(
-    'CREATE TABLE IF NOT EXISTS Material_Properties_Steel (\
-    Name TEXT UNIQUE PRIMARY KEY, \
-    Fy REAL, \
-    Fu REAL, \
-    EffFy REAL, \
-    EffFu REAL, \
-    SSCurveOpt TEXT, \
-    SSHysType TEXT, \
-    SHard REAL, \
-    SMax REAL, \
-    SRup REAL, \
-    FinalSlope REAL)'
-    )
-    for sql in sqls:
-        cu.execute(sql)
-    cu.close
-    if commit:
-        conn.commit()
-
-def AddQuick(conn,std,grade,commit=True):
+def CreateTable(md):
     """
+    md: ModelData
+    """
+    if 'MaterialPropertiesGeneral' not in md.dataFrames.keys():
+         md.dataFrames['MaterialPropertiesGeneral']=pd.DataFrame({
+         'Name':[],
+         'Type':[],
+         'SymType':[],
+         'TempDepend':[],
+         'Color':[]
+         })
+         
+    if 'MaterialPropertiesBasicMechanical' not in md.dataFrames.keys():
+        md.dataFrames['MaterialPropertiesBasicMechanical']=pd.DataFrame({
+        'Name':[],
+        'UnitWeight':[],
+        'UnitMass' :[],
+        'E1':[],
+        'G12':[],
+        'U12':[],
+        'A1':[]
+        })
+        
+    if 'MaterialPropertiesSteel' not in md.dataFrames.keys():
+        md.dataFrames['MaterialPropertiesSteel']=pd.DataFrame({
+        'Name':[],
+        'Fy':[],
+        'Fu':[],
+        'EffFy':[],
+        'EffFu':[],
+        'SSCurveOpt':[], 
+        'SSHysType':[],
+        'SHard':[],
+        'SMax':[],
+        'SRup':[],
+        'FinalSlope':[],
+        })
+
+def AddQuick(md,std,grade):
+    """
+    md: ModelData
     std： GB as Chinese standard
     """
-    cu=conn.cursor()
     if std=='GB':
         if grade=='Q345':
-            mpg=('Q345','Steel','Iso','No','0x000000')
-            mpb=('Q345','774.9','7849','2.000E11','0.3','0.3','1.17e-5')
-            mps=('Q345','345','460','0','0','0','0','0','0','0','0')
-            cu.execute('INSERT INTO Material_Properties_General VALUES (?,?,?,?,?)',mpg)
-            cu.execute('INSERT INTO Material_Properties_Basic_Mechanical VALUES (?,?,?,?,?,?,?)',mpb)
-            cu.execute('INSERT INTO Material_Properties_Steel VALUES (?,?,?,?,?,?,?,?,?,?,?)',mps)
-    cu.close
-    if commit:
-        conn.commit()
+            md.dataFrames['MaterialPropertiesGeneral'].append({
+            'Name':'Q345',
+            'Type':'Steel',
+            'SymType':'Iso',
+            'TempDepend':False,
+            'Color':0x000000
+            })
+            md.dataFrames['MaterialPropertiesBasicMechanical'].append({
+            'Name':'Q345',
+            'UnitWeight':774.9,
+            'UnitMass' :7849,
+            'E1':2.000E11,
+            'G12':0.3,
+            'U12':0.3,
+            'A1':1.17e-5
+            })
+            md.dataFrames['MaterialPropertiesSteel'].append({
+            'Name':'Q345',
+            'Fy':345,
+            'Fu':460,
+            'EffFy':0,
+            'EffFu':0,
+            'SSCurveOpt':0, 
+            'SSHysType':0,
+            'SHard':0,
+            'SMax':0,
+            'SRup':0,
+            'FinalSlope':0,
+            })
             
             

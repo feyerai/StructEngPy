@@ -3,16 +3,19 @@
 Created on Fri Jul  1 12:30:31 2016
 
 @author: huan
+
+This package preprocess the relative parameters for analysis.
 """
 import sqlite3
 import pandas as pd
+import numpy as np
 
-def GetMaterialBasic(conn):
+def GetMaterialBasic(md):
     """
-    conn: sqlite database connection.\n
+    md: ModelData object.\n
     return: dataframe of material basic mechanical
     """
-    df=pd.read_sql('SELECT * FROM Material_Properties_Basic_Mechanical',conn)
+    df=md.dataFrames['MaterialPropertiesBasicMechanical']
     return df
     
 def GetSteel(conn):
@@ -20,7 +23,7 @@ def GetSteel(conn):
     conn: sqlite database connection.\n
     return: dataframe of steel
     """
-    df=pd.read_sql('SELECT * FROM Material_Properties_Steel',conn)
+    df=md.dataFrames['MaterialPropertiesSteel']
     return df
     
 def GetBeamSections(conn):
@@ -28,30 +31,68 @@ def GetBeamSections(conn):
     conn: sqlite database connection.\n
     return: dataframe of beam sections
     """
-    df=GetBeamSections(conn)
-    df=pd.read_sql('SELECT * FROM Beam_Prop_General',conn)
-    
+    df=md.dataFrames['BeamPropGeneral']    
     return df
 
-def GetNodesCoordiniate(conn):
-    df=pd.read_sql('SELECT * FROM Node_Coordinates',conn)
+def GetNodesCoordiniate(md):
+    """
+    md: ModelData object.
+    """
+    df=md.dataFrames['NodeCoordinates']
     return df
     
 def GetBeams(conn):
     """
-    conn: sqlite database connection.\n
+    md: ModelData object.\n
     return: dataframe of beam
     """
-    df=pd.read_sql('SELECT * FROM Connectivity_Beam',conn)
+    df=md.dataFrames['ConnectivityBeam']
     return df
     
-def GetBeamSections(conn):
+def GetBeamStiffness(md):
     """
-    conn: sqlite database connection.\n
+    md: ModelData object..\n
     return: dataframe of beam sections
     """
-    mdf=GetMaterialBasic(conn)
-    df1=pd.read_sql('SELECT * FROM Beam_Section_Assignments',conn)
+    mdf=GetMaterialBasic(md)
+    bsdf=GetBeamSections(md)
+    EA=[]
+    EI33=[]
+    EI22=[]
+    GJ=[]
+    for i in range(bsdf.shape[0]):
+        E=mdf[mdf.Name==sdf.ix[i]['Material']]['E1'].value
+        G=mdf[mdf.Name==sdf.ix[i]['Material']]['G12'].value
+        A  =sdf.ix[i]['Area']
+        I33=sdf.ix[i]['I33']
+        I22=sdf.ix[i]['I22']
+        J  =sdf.ix[i]['TorsConst']
+        EA.append(E*A)
+        EI33.append(E*I33)
+        EI22.append(E*I22)
+        GJ.append(G*J)
+    
+    sdf=pd.DataFrame()
+    sdf['EA']=pd.Series(EA,index=bsdf.index)
+    sdf['EI33']=pd.Series(EI33,index=bsdf.index)    
+    sdf['EI22']=pd.Series(EI22,index=bsdf.index)
+    sdf['GJ']=pd.Series(GJ,index=bsdf.index)
+    
+    cdf=md.dataFrames['ConnectivityBeam']
+    bsdf=md.dataFrames['BeamSectionAssignments']
+    
+    ndf=md.dataFrames['NodeCoordinates']
+    for i in range(cdf.shape[0]):
+        n1=ndf[ndf.Name==sdf.ix[i]]
+        n2=ndf[ndf.Name==sdf.ix[i]]
+        length.append(np.sqrt((n1['X'].value-n2['X'].value)**2+(n1['Y'].value-n2['Y'].value)**2+(n1['Y'].value-n2['Y'].value)**2))
+    
+    df=pd.DataFrame(cdf['Name'])
+    df['Length']=pd.Series(length,index=cdf.index)
+    for i in range(bsdf.shape[0]):
+        
+    
+    
     
     #return EA,EI,GJ,etc.
     
