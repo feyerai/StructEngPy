@@ -4,6 +4,8 @@ Created on Fri Jun 24 16:26:46 2016
 
 @author: huan
 """
+import shutil
+import sqlite3
 import pandas as pd
 
 class ModelData:
@@ -13,14 +15,16 @@ class ModelData:
     def __init__(self):
         self.dataFrames={}
         
-    def Open(self,path):
+    def Open(self,file):
         return False
     
-    def Save(self,path):
-        for df in self.dataFrames:
-            df.to_sql()
-        
-
-        
-
-    
+    def Save(self,db):
+        tempPath='F:\\test\\'
+        temp=tempPath+'temp.sqlite'
+        try:
+            conn=sqlite3.connect(temp)
+            for name in self.dataFrames.keys():
+                self.dataFrames[name].to_sql(name,conn)              
+        finally:
+            conn.close()
+        shutil.move(temp,db)

@@ -7,49 +7,12 @@ Created on Fri Jun 24 16:32:51 2016
 
 import pandas as pd
 
-    
-#def CreateTable(conn,commit=True):
-#    sql='CREATE TABLE IF NOT EXISTS Node_Coordinates(\
-#    Name TEXT UNIQUE PRIMARY KEY, \
-#    CoordSys TEXT, \
-#    CoordType TEXT, \
-#    X REAL, \
-#    Y REAL, \
-#    Z REAL)'
-#    cu=conn.cursor()
-#    cu.execute(sql)
-#    cu.close
-#    if commit:
-#        conn.commit()
-#    
-#def AddCartesian(conn,nodes,commit=True):
-#    """
-#    conn: sqlite database connection
-#    nodes: a list of tuples in (name,x,y,z)
-#    """
-#    cu=conn.cursor()
-#    sql='INSERT INTO Node_Coordinates VALUES (?,?,?,?,?,?)'
-#    args=[]
-#    for node in nodes:
-#        args.append((str(node[0]),'Global','Cartesian',str(node[1]),str(node[2]),str(node[3])))
-#    cu.executemany(sql,args)
-#    cu.close
-#    if commit:
-#        conn.commit()
-#            
-#def Count():
-#    return False
-#    
-#def GetCoordCartesian():
-#    return False
-
 def CreateTable(md):
     """
     md: ModelData
     """
     if 'NodeCoordinates' not in md.dataFrames.keys():
         md.dataFrames['NodeCoordinates']=pd.DataFrame({
-        'Name':[],
         'CoordSys':[],
         'CoordType':[],
         'X':[],
@@ -63,14 +26,13 @@ def AddCartesian(md,nodes):
     nodes: a list of tuples in (name,x,y,z)
     """
     for node in nodes:
-        md.dataFrames['NodeCoordinates'].append({
-        'Name':node[0],
+        md.dataFrames['NodeCoordinates']=md.dataFrames['NodeCoordinates'].append(pd.DataFrame({
         'CoordSys':'Global',
         'CoordType':'Cartesian',
         'X':node[1],
         'Y':node[2],
         'Z':node[3]
-        })
+        },index=[str(node[0])]))
             
 def Count(md):
     """
@@ -95,4 +57,3 @@ if __name__=='__main__':
     finally:
         dm.Close()
 
-    

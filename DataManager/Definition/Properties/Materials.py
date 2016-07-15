@@ -13,7 +13,6 @@ def CreateTable(md):
     """
     if 'MaterialPropertiesGeneral' not in md.dataFrames.keys():
          md.dataFrames['MaterialPropertiesGeneral']=pd.DataFrame({
-         'Name':[],
          'Type':[],
          'SymType':[],
          'TempDepend':[],
@@ -22,7 +21,6 @@ def CreateTable(md):
          
     if 'MaterialPropertiesBasicMechanical' not in md.dataFrames.keys():
         md.dataFrames['MaterialPropertiesBasicMechanical']=pd.DataFrame({
-        'Name':[],
         'UnitWeight':[],
         'UnitMass' :[],
         'E1':[],
@@ -33,7 +31,6 @@ def CreateTable(md):
         
     if 'MaterialPropertiesSteel' not in md.dataFrames.keys():
         md.dataFrames['MaterialPropertiesSteel']=pd.DataFrame({
-        'Name':[],
         'Fy':[],
         'Fu':[],
         'EffFy':[],
@@ -53,24 +50,21 @@ def AddQuick(md,std,grade):
     """
     if std=='GB':
         if grade=='Q345':
-            md.dataFrames['MaterialPropertiesGeneral'].append({
-            'Name':'Q345',
+            md.dataFrames['MaterialPropertiesGeneral']=md.dataFrames['MaterialPropertiesGeneral'].append(pd.DataFrame({
             'Type':'Steel',
             'SymType':'Iso',
             'TempDepend':False,
             'Color':0x000000
-            })
-            md.dataFrames['MaterialPropertiesBasicMechanical'].append({
-            'Name':'Q345',
+            },index=['Q345']))
+            md.dataFrames['MaterialPropertiesBasicMechanical']=md.dataFrames['MaterialPropertiesBasicMechanical'].append(pd.DataFrame({
             'UnitWeight':774.9,
             'UnitMass' :7849,
             'E1':2.000E11,
             'G12':0.3,
             'U12':0.3,
             'A1':1.17e-5
-            })
-            md.dataFrames['MaterialPropertiesSteel'].append({
-            'Name':'Q345',
+            },index=['Q345']))
+            md.dataFrames['MaterialPropertiesSteel']=md.dataFrames['MaterialPropertiesSteel'].append(pd.DataFrame({
             'Fy':345,
             'Fu':460,
             'EffFy':0,
@@ -81,6 +75,6 @@ def AddQuick(md,std,grade):
             'SMax':0,
             'SRup':0,
             'FinalSlope':0,
-            })
+            },index=['Q345']))
             
             

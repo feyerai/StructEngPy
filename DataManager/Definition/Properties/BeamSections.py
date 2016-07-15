@@ -13,7 +13,6 @@ def CreateTable(md):
     """
     if 'BeamPropGeneral' not in md.dataFrames.keys():
         md.dataFrames['BeamPropGeneral']=pd.DataFrame({
-        'Name':[],
         'Material':[],
         'Shape':[],
         't3':[],
@@ -60,8 +59,7 @@ def AddQuick(md,material,profile,commit=True):
         tf=eval(size[3])
         section=sp.IProfile(h,b,tw,tf)
     
-    md.dataFrames['BeamPropGeneral'].append({
-        'Name':profile,
+    md.dataFrames['BeamPropGeneral']=md.dataFrames['BeamPropGeneral'].append(pd.DataFrame({
         'Material':material,
         'Shape':'I',
         't3':size[0],
@@ -92,5 +90,4 @@ def AddQuick(md,material,profile,commit=True):
         'WMod':0,
         'GUID':'0',
         'Notes':0
-        })
-    
+        },index=[profile[0]]))

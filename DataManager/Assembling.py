@@ -18,7 +18,7 @@ def GetMaterialBasic(md):
     df=md.dataFrames['MaterialPropertiesBasicMechanical']
     return df
     
-def GetSteel(conn):
+def GetSteel(md):
     """
     conn: sqlite database connection.\n
     return: dataframe of steel
@@ -26,7 +26,7 @@ def GetSteel(conn):
     df=md.dataFrames['MaterialPropertiesSteel']
     return df
     
-def GetBeamSections(conn):
+def GetBeamSections(md):
     """
     conn: sqlite database connection.\n
     return: dataframe of beam sections
@@ -41,7 +41,7 @@ def GetNodesCoordiniate(md):
     df=md.dataFrames['NodeCoordinates']
     return df
     
-def GetBeams(conn):
+def GetBeams(md):
     """
     md: ModelData object.\n
     return: dataframe of beam
@@ -54,54 +54,42 @@ def GetBeamStiffness(md):
     md: ModelData object..\n
     return: dataframe of beam sections
     """
-    mdf=GetMaterialBasic(md)
-    bsdf=GetBeamSections(md)
+    mdf=GetMaterialBasic(md) #material
+    bsdf=GetBeamSections(md) #section
     EA=[]
     EI33=[]
     EI22=[]
     GJ=[]
-    for i in range(bsdf.shape[0]):
-        E=mdf[mdf.Name==sdf.ix[i]['Material']]['E1'].value
-        G=mdf[mdf.Name==sdf.ix[i]['Material']]['G12'].value
-        A  =sdf.ix[i]['Area']
-        I33=sdf.ix[i]['I33']
-        I22=sdf.ix[i]['I22']
-        J  =sdf.ix[i]['TorsConst']
+    for idx,row in bsdf.iterrows():
+        E=mdf.ix[row['Material']]['E1'].get_value(0)
+        G=mdf.ix[row['Material']]['G12'].get_value(0)
+        A  =bsdf.ix[idx]['Area']
+        I33=bsdf.ix[idx]['I33']
+        I22=bsdf.ix[idx]['I22']
+        J  =bsdf.ix[idx]['TorsConst']
         EA.append(E*A)
         EI33.append(E*I33)
         EI22.append(E*I22)
         GJ.append(G*J)
     
-    sdf=pd.DataFrame()
+    sdf=pd.DataFrame() #section stiffness
     sdf['EA']=pd.Series(EA,index=bsdf.index)
     sdf['EI33']=pd.Series(EI33,index=bsdf.index)    
     sdf['EI22']=pd.Series(EI22,index=bsdf.index)
     sdf['GJ']=pd.Series(GJ,index=bsdf.index)
     
     cdf=md.dataFrames['ConnectivityBeam']
-    bsdf=md.dataFrames['BeamSectionAssignments']
-    
     ndf=md.dataFrames['NodeCoordinates']
-    for i in range(cdf.shape[0]):
-        n1=ndf[ndf.Name==sdf.ix[i]]
-        n2=ndf[ndf.Name==sdf.ix[i]]
+    length=[]
+    for idx,row in cdf.iterrows():
+        n1=ndf.ix[row['Joint1']]
+        n2=ndf.ix[row['Joint2']]
         length.append(np.sqrt((n1['X'].value-n2['X'].value)**2+(n1['Y'].value-n2['Y'].value)**2+(n1['Y'].value-n2['Y'].value)**2))
     
-    df=pd.DataFrame(cdf['Name'])
-    df['Length']=pd.Series(length,index=cdf.index)
-    for i in range(bsdf.shape[0]):
-        
-    
-    
-    
-    #return EA,EI,GJ,etc.
-    
+    df=pd.DataFrame({'L':length},index=cdf.index)
+    df['EA']=sdf['EA']
+    df['EI33']=sdf['EI33']
+    df['EI22']=sdf['EI22']
+    df['GJ']=sdf['GJ'] 
     return df
-
-if __name__=='__main__':
-    conn=sqlite3.connect('C:\\huan\\Test\\Test.sqlite')
-    try:
-        a=GetBeams(conn)
-        print(a)
-    finally:
-        conn.close()
+    

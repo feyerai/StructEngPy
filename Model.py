@@ -12,13 +12,8 @@ import scipy.sparse.linalg as sl
 from scipy import linalg
 import pandas as pd
 import Material,Section,Node,Beam
-from DataManger import ModelData
-import DataManager.Definition as dd
-import DataManager.Modeling.Nodes as dmn
-import DataManager.Modeling.Beams as dmb
-import DataManager.Definition.Properties.Materials as ddpm
-import DataManager.Definition.Properties.BeamSections as ddpb
-import DataManager.Assembling as da
+from DataManager.DataManager import ModelData
+import DataManager as dm
 
 class Model:
     def __init__(self,db):
@@ -26,25 +21,14 @@ class Model:
         self.database=db
         
     def Save(self):
-        self.data.Save(self.db)
+        self.data.Save(self.database)
 
     def Assemble(self,path):
         """
         Assemble matrix
         Writing the matrix to the disk
-        """
-        #*************************************************Modeling**************************************************/
-        #Q345
-        self.materials=[]
-        self.sections=[]
-        self.nodes=[]
-        self.beams=[]
-        conn=sqlite3.connect(self.database)
-       
-        nodeDf=da.GetNodesCoordiniate(conn)
-        materialDf=pd.merge(ddpm.GetMaterialBasic(conn),ddpm.GetSteel(conn),on='Name')
-        sectionDf=ddpb.GetBeamSections(conn)        
-        beamDf=pd.merge(dmb.GetBeams(conn),dmb.GetSections(conn),on='Name')
+        """        
+        bStiff=dm.Assembling.GetBeamStiffness(md)
         
         for i in range(nodeDf.shape[0]):
             n=nodeDf.ix[i]            
@@ -419,26 +403,21 @@ class Model:
         for node in nodes:
             ns.append([ID,node.x,node.y,node.z])
             ID+=1
-        conn=sqlite3.connect(self.database)
-        try:
-            dmn.CreateTable(self.data)
-            dmn.AddCartesian(conn,ns,commit=False)
-            ddpm.CreateTable(conn,commit=False)
-            ddpm.AddQuick(conn,'GB','Q345',commit=False)
-            
-            ddpb.CreateTable(conn,commit=False)
-            ddpb.AddQuick(conn,'Q345','H400x200x12x14')
-            
-            conn.commit()
-        finally:
-            conn.close()
+        dmn.CreateTable(self.data)
+        dmn.AddCartesian(self.data,ns)
+        ddpm.CreateTable(self.data)
+        ddpm.AddQuick(self.data,'GB','Q345')        
+        ddpb.CreateTable(self.data)
+        ddpb.AddQuick(self.data,'Q345','H400x200x12x14')
+        
+        self.Save()
         
         
 if __name__=='__main__':     
-    file='C:\\huan\\Test\\Test.sqlite'
-    path='C:\\huan\\Test\\'
+    file='F:\\Test\\Test.sqlite'
+    path='F:\\Test'
     m=Model(file)
-#    m.Test()
+    m.Test()
     m.Assemble(path)
     m.SolveLinear(path)
 #    m.SolveModal(path,k=1)
