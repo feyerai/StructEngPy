@@ -12,12 +12,11 @@ import scipy.sparse.linalg as sl
 from scipy import linalg
 import pandas as pd
 import Material,Section,Node,Beam
-from DataManager.DataManager import ModelData
-import DataManager as dm
+import DataManager
 
 class Model:
     def __init__(self,db):
-        self.data=ModelData()
+        self.data=DataManager.ModelData.ModelData()
         self.database=db
         
     def Save(self):
@@ -27,53 +26,23 @@ class Model:
         """
         Assemble matrix
         Writing the matrix to the disk
-        """        
-        bStiff=dm.Assembling.GetBeamStiffness(md)
-        
-        for i in range(nodeDf.shape[0]):
-            n=nodeDf.ix[i]            
-            node=Node.Node(n['X'],n['Y'],n['Z'])
-            self.nodes.append(node)
-        
-        for i in range(materialDf.shape[0]):
-            self.materials.append(Material.Material(materialDf['E1'], materialDf['G12'], materialDf['UnitWeight'], materialDf['A1']))
-            
-        for i in range(sectionDf.shape[0]):
-            self.sections.append(Section.Section(self.materials[0], 4.800E-3, 1.537E-7, 3.196E-5, 5.640E-6))
-        
-        for i in range(beamDf.shape[0]):
-            b=beamDf.ix[i]
-            self.beams.append(Beam.Beam(b['NodeI'], b['NodeJ'], b['Section']))
-        #loads
-        #double f[6] = { 0,0,-100000,0,0,0 }
-        qi=(0,0,-10,0,0,0)
-        qj=(0,0,-10,0,0,0)
-        #double d[6] = { 1,0,0,0,0,0 }
-        self.beams[0].SetLoadDistributed(qi, qj)
-        #beams[3].SetLoadDistributed(qi, qj)
-        #nodes[3].SetLoad(f)
-        #nodes[0].SetDisp(d)
-        #supports
-        res1 = [True]*6
-        res2 = [False]*6
-        res3 = [False,True, True, True, True, True ]
-        self.nodes[0].SetRestraints(res1)
-        self.nodes[1].SetRestraints(res2)
-        #nodes[5].SetRestraints(res1)
-        #releases
-        #beams[3].releaseJ[4] = True
-#        self.beams[3].releaseJ[5] = True
+        """                
+        nodedf=DataManager.Assembling.GetNodes(self.database)
+        beamdf=DataManager.Assembling.GetBeamStiffness(self.database)
         #*************************************************Modeling**************************************************/
         
-        nid = 0
+        n=nodedf.shape[0]
         # Dynamic space allocate
-        Kmat = np.zeros((len(self.nodes)*6, len(self.nodes)*6))
-        Mmat = np.zeros((len(self.nodes)*6, len(self.nodes)*6))
-        Fvec = np.zeros(len(self.nodes)*6)
-        Dvec = np.zeros(len(self.nodes)*6)
+        Kmat = np.zeros((n*6, n*6))
+        Mmat = np.zeros((n*6, n*6))
+        Fvec = np.zeros(n*6)
+        Dvec = np.zeros(n*6)
 
         #Nodal load and displacement, and reset the index
-        for node in self.nodes:
+        nid = 0
+        nodedf['hid']=pd.Series(range(nodedf.shape[0]),index=nodedf.index)#hidden ID
+            
+        for node in nodes:
             node.id = nid
             load = np.array(node.load)
             Fvec[nid * 6: nid * 6 + 6] = np.dot(node.TransformMatrix().transpose(),load)
@@ -82,6 +51,7 @@ class Model:
                     Dvec[nid * 6 + i] = node.disp[i]
             nid+=1
         nid = 0
+        
         #Beam load and displacement, and reset the index
         for beam in self.beams:
             beam.Id = nid
@@ -402,14 +372,14 @@ class Model:
         ns=[]
         for node in nodes:
             ns.append([ID,node.x,node.y,node.z])
-            ID+=1
-        dmn.CreateTable(self.data)
-        dmn.AddCartesian(self.data,ns)
-        ddpm.CreateTable(self.data)
-        ddpm.AddQuick(self.data,'GB','Q345')        
-        ddpb.CreateTable(self.data)
-        ddpb.AddQuick(self.data,'Q345','H400x200x12x14')
-        
+            ID+=1        
+        DataManager.Definition.Properties.Materials.CreateTable(self.data)
+        DataManager.Definition.Properties.Materials.AddQuick(self.data,'GB','Q345')        
+        DataManager.Definition.Properties.BeamSections.CreateTable(self.data)
+        DataManager.Definition.Properties.BeamSections.AddQuick(self.data,'Q345','H400x200x12x14')
+        DataManager.Modeling.Nodes.AddCartesian(self.data,ns)
+        DataManager.Modeling.Beams.AddBeams(self.data,[(1,0,1,'H400x200x12x14')])
+        DataManager.Modeling.Beams.SetLoadForce(self.data,1,'D',[0,0,-100,0,0,0],[0,0,-100,0,0,0])
         self.Save()
         
         

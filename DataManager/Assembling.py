@@ -10,63 +10,94 @@ import sqlite3
 import pandas as pd
 import numpy as np
 
-def GetMaterialBasic(md):
+def GetMaterialBasic(db):
     """
-    md: ModelData object.\n
+    db: sqlite data base\n
     return: dataframe of material basic mechanical
     """
-    df=md.dataFrames['MaterialPropertiesBasicMechanical']
+    try:
+        conn=sqlite3.connect(db)
+        df=pd.read_sql('SELECT * FROM MaterialPropertiesBasicMechanical',conn,index_col='index')
+    except Exception as e:
+        print(e)
+        return None
+    finally:
+        conn.close()
     return df
     
-def GetSteel(md):
+def GetSteel(db):
     """
-    conn: sqlite database connection.\n
+    db: sqlite data base\n
     return: dataframe of steel
     """
     df=md.dataFrames['MaterialPropertiesSteel']
     return df
     
-def GetBeamSections(md):
+def GetBeamSections(db):
     """
-    conn: sqlite database connection.\n
+    db: sqlite data base\n
     return: dataframe of beam sections
-    """
-    df=md.dataFrames['BeamPropGeneral']    
+    """  
+    try:
+        conn=sqlite3.connect(db)
+        df=pd.read_sql('SELECT * FROM BeamPropGeneral',conn,index_col='index')
+    except Exception as e:
+        print(e)
+        return None
+    finally:
+        conn.close()
     return df
 
-def GetNodesCoordiniate(md):
+def GetNodes(db):
     """
-    md: ModelData object.
+    db: sqlite data base\n
+    return: dataframe of node coordinates
     """
-    df=md.dataFrames['NodeCoordinates']
+    try:
+        conn=sqlite3.connect(db)
+        df=pd.read_sql('SELECT * FROM NodeCoordinates',conn,index_col='index')
+    except Exception as e:
+        print(e)
+        return None
+    finally:
+        conn.close()
     return df
     
-def GetBeams(md):
+def GetBeams(db):
     """
-    md: ModelData object.\n
+    db: sqlite data base\n
     return: dataframe of beam
     """
-    df=md.dataFrames['ConnectivityBeam']
+    try:
+        conn=sqlite3.connect(db)
+        df=pd.read_sql('SELECT * FROM ConnectivityBeam',conn,index_col='index')
+    except Exception as e:
+        print(e)
+        return None
+    finally:
+        conn.close()
     return df
     
-def GetBeamStiffness(md):
+def GetBeamStiffness(db):
     """
     md: ModelData object..\n
-    return: dataframe of beam sections
+    return: dataframe of beam stifness info
     """
-    mdf=GetMaterialBasic(md) #material
-    bsdf=GetBeamSections(md) #section
+    mdf=GetMaterialBasic(db) #material
+    bsdf=GetBeamSections(db) #section
+    cdf=GetBeams(db) #beam connectivity
+    ndf=GetNodes(db) #node coordinates
     EA=[]
     EI33=[]
     EI22=[]
     GJ=[]
     for idx,row in bsdf.iterrows():
-        E=mdf.ix[row['Material']]['E1'].get_value(0)
-        G=mdf.ix[row['Material']]['G12'].get_value(0)
-        A  =bsdf.ix[idx]['Area']
-        I33=bsdf.ix[idx]['I33']
-        I22=bsdf.ix[idx]['I22']
-        J  =bsdf.ix[idx]['TorsConst']
+        E=mdf['E1'][row['Material']]
+        G=mdf['G12'][row['Material']]
+        A  =bsdf['Area'][idx]
+        I33=bsdf['I33'][idx]
+        I22=bsdf['I22'][idx]
+        J  =bsdf['TorsConst'][idx]
         EA.append(E*A)
         EI33.append(E*I33)
         EI22.append(E*I22)
@@ -78,13 +109,11 @@ def GetBeamStiffness(md):
     sdf['EI22']=pd.Series(EI22,index=bsdf.index)
     sdf['GJ']=pd.Series(GJ,index=bsdf.index)
     
-    cdf=md.dataFrames['ConnectivityBeam']
-    ndf=md.dataFrames['NodeCoordinates']
     length=[]
     for idx,row in cdf.iterrows():
-        n1=ndf.ix[row['Joint1']]
-        n2=ndf.ix[row['Joint2']]
-        length.append(np.sqrt((n1['X'].value-n2['X'].value)**2+(n1['Y'].value-n2['Y'].value)**2+(n1['Y'].value-n2['Y'].value)**2))
+        n1=ndf.ix[row['NodeI']]
+        n2=ndf.ix[row['NodeJ']]
+        length.append(np.sqrt((n1['X']-n2['X'])**2+(n1['Y']-n2['Y'])**2+(n1['Y']-n2['Y'])**2))
     
     df=pd.DataFrame({'L':length},index=cdf.index)
     df['EA']=sdf['EA']
@@ -92,4 +121,6 @@ def GetBeamStiffness(md):
     df['EI22']=sdf['EI22']
     df['GJ']=sdf['GJ'] 
     return df
-    
+
+if __name__=='__main__':
+    mdf=GetMaterialBasic('F:\\Test\\Test.sqlite')    

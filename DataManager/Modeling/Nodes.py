@@ -6,10 +6,11 @@ Created on Fri Jun 24 16:32:51 2016
 """
 
 import pandas as pd
-
-def CreateTable(md):
+    
+def AddCartesian(md,nodes):
     """
     md: ModelData
+    nodes: a list of tuples in (name,x,y,z)
     """
     if 'NodeCoordinates' not in md.dataFrames.keys():
         md.dataFrames['NodeCoordinates']=pd.DataFrame({
@@ -18,13 +19,7 @@ def CreateTable(md):
         'X':[],
         'Y':[],
         'Z':[]
-        })
-    
-def AddCartesian(md,nodes):
-    """
-    md: ModelData
-    nodes: a list of tuples in (name,x,y,z)
-    """
+        })        
     for node in nodes:
         md.dataFrames['NodeCoordinates']=md.dataFrames['NodeCoordinates'].append(pd.DataFrame({
         'CoordSys':'Global',
@@ -40,6 +35,67 @@ def Count(md):
     """
     return md.dataFrames['NodeCoordinates'].shape[0]
     
+def DeleteConstraint():
+    return False
+    
+def DeleteLoadDisp():
+    return False
+    
+def DeleteLoadForce():
+    return False
+    
+def DeleteMass():
+    return False
+    
+def DeleteRestraint():
+    return False
+
+def DeleteSpring():
+    return False
+    
+def SetConstraint():
+    return False
+
+def SetLoadDisp():
+    return False
+
+def SetLoadForce(md,node,lc,load):
+    """
+    node: index of node\n
+    lc: name of load case\n
+    load: list contains force P1,P2,P3,M1,M2,M3.
+    """
+    if 'NodalLoads_Force' not in md.dataFrames.keys():
+        md.dataFrames['NodalLoads_Force']=pd.DataFrame({
+        'Node':[],
+        'LC':[],
+        'P1':[],
+        'P2':[],
+        'P3':[],
+        'M1':[],
+        'M2':[],
+        'M3':[]
+        }) 
+    md.dataFrames['NodalLoads_Force']=md.dataFrames['NodalLoads_Force'].append({
+        'Node':str(node),
+        'LC':str(lc),
+        'P1':load[0],
+        'P2':load[1],
+        'P3':load[2],
+        'M1':load[3],
+        'M2':load[4],
+        'M3':load[5]
+        })
+    
+def SetLocalAxis():
+    return False
+    
+def SetMass():
+    return False
+    
+def SetSpring():
+    return False
+        
 def GetCoordCartesian():
     return False        
 
