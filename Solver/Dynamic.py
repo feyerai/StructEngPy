@@ -143,12 +143,11 @@ class MDOFSystem():
         for i in range(n):
             w.append(np.sqrt(w2[i]))
             T.append(2*np.pi/w[-1])            
-            if min(mode[i]/max(mode[i]))<-1:
-                mode[i]/=min(mode[i])
-            else:
-                mode[i]/=max(mode[i])
+#            if min(mode[i]/max(mode[i]))<-1:
+#                mode[i]/=min(mode[i])
+#            else:
+#                mode[i]/=max(mode[i])
             freq.append(1/T[-1])
-        print(w)
         return w,freq,T,mode
         
     def RizMode(self,n,F):
@@ -193,13 +192,15 @@ class MDOFSystem():
         F: list of time-dependent force vectors.\n
         xi: modal damping ratio
         """
-        wlist,flist,Tlist,modelist=self.EigenMode(self.K.shape[0])
-        damp=np.diag(2*xi*modelist)
-        y_mat=np.dot(modelist.T,np.array([u0,v0,a0]))
+        wVec,fVec,TVec,modeMat=self.EigenMode(self.K.shape[0])
+        damp=np.diag(2*xi*wVec)
+        y_mat=np.dot(modeMat.T,np.array([u0,v0,a0]))
         dt=T[1]-T[0]        
         #iterative solve        
-        
-        for w,mode,y0 in zip(wlist,modelist,y_mat):    
+        u=[]
+        v=[]
+        a=[]
+        for w,mode,y0 in zip(wVec,modeMat,y_mat):    
             #construct load vector R
             R=[]
             R0=np.dot(mode.T,F.T)
@@ -224,12 +225,12 @@ class MDOFSystem():
             w_=w*xi
             xi_=xi/np.sqrt(1-xi**2)
             a0=2*xi*w
-            a1=wd**2-w**2
+            a1=wd**2-w_**2
             a2=2*w_*wd
             S0=np.exp(-xi*w*dt)*np.sin(wd*dt)
             C0=np.exp(-xi*w*dt)*np.cos(wd*dt)
-            S1=-w*S0-wd*C0
-            C1=-w*C0-wd*S0
+            S1=-w_*S0+wd*C0
+            C1=-w_*C0-wd*S0
             S2=-a1*S0-a2*C0
             C2=-a1*C0+a2*S0
             B=np.array([
@@ -238,24 +239,35 @@ class MDOFSystem():
             [S2, C2, 0,  0,    2,   6*dt]
             ])
             C=np.array([
-            [-wd, -w,   0,   1,     0,     0],
-            [  0,  1,   1,   0,     0,     0],
-            [  0,  0,w**2,  a0,     2,     0],
-            [  0,  0,   0,w**2,  2*a0,     6],
-            [  0,  0,   0,   0,2*w**2,  6*a0],
-            [  0,  0,   0,   0,     0,6*w**2]
+            [-wd, -w_,   0,   1,     0,     0],
+            [  0,   1,   1,   0,     0,     0],
+            [  0,   0,w**2,  a0,     2,     0],
+            [  0,   0,   0,w**2,  2*a0,     6],
+            [  0,   0,   0,   0,2*w**2,  6*a0],
+            [  0,   0,   0,   0,     0,6*w**2]
             ])
+            C=np.linalg.inv(C)
             A=np.dot(B,C)
             y_=[y0]
             for i in range(len(T)-1):
                 a=[y_[-1][1],y_[-1][0],R0[i],R1[i],R2[i],R3[i]]
                 R_=np.array(a)
-                y_.append(A*R_)
-            yn=[]
+                y_.append(np.dot(A,R_))
+            un=[]
+            vn=[]
+            an=[]
             for yt_ in y_:
-                yn.append(np.dot(mode,yt_))
-            print(yn)
-#        df=pd.DataFrame({'t':tt,'u':y})
+                un.append(np.dot(mode,yt_[0]))
+                vn.append(np.dot(mode,yt_[1]))
+                an.append(np.dot(mode,yt_[2]))
+            u.append(np.array(un))
+            v.append(np.array(vn))
+            a.append(np.array(an))
+        us=sum(u)
+        vs=sum(u)
+        aas=sum(u)
+        pd.Series(us[2]).plot()
+        df=pd.DataFrame({'t':T,'u':us})
         
         
         
@@ -379,7 +391,7 @@ def MTest():
     #Test with the mode-decomposite-method result in Zhu's Structural Mechanics p.134
     m=2e5
     k=200e6
-    t=np.arange(0.001,10,0.001)
+    t=np.arange(0.01,10,0.01)
     A=0.1    
     y=100*A*np.sin(10*t)
     F=np.array([1.5*m*y,m*y,1.5*m*y]).T   
