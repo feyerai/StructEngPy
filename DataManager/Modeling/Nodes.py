@@ -9,7 +9,7 @@ import pandas as pd
     
 def AddCartesian(md,nodes):
     """
-    md: ModelData
+    md: ModelData\n
     nodes: a list of tuples in (name,x,y,z)
     """
     if 'NodeCoordinates' not in md.dataFrames.keys():
@@ -61,8 +61,9 @@ def SetLoadDisp():
 
 def SetLoadForce(md,node,lc,load):
     """
+    md: ModelData\n
     node: index of node\n
-    lc: name of load case\n
+    lc: load case\n
     load: list contains force P1,P2,P3,M1,M2,M3.
     """
     if 'NodalLoads_Force' not in md.dataFrames.keys():
@@ -85,13 +86,37 @@ def SetLoadForce(md,node,lc,load):
         'M1':load[3],
         'M2':load[4],
         'M3':load[5]
-        })
+        },ignore_index=True)
     
 def SetLocalAxis():
     return False
     
 def SetMass():
     return False
+
+def SetRestraints(md,node,r):
+    """
+    md: ModelData\n
+    node: index of node\n
+    r: boolean list contains restraint U1,U2,U3,R1,R2,R3.
+    """
+    if 'NodeRestraintAssignment' not in md.dataFrames.keys():
+        md.dataFrames['NodeRestraintAssignment']=pd.DataFrame({
+        'U1':[],
+        'U2':[],
+        'U3':[],
+        'R1':[],
+        'R2':[],
+        'R3':[],
+        }) 
+    md.dataFrames['NodeRestraintAssignment']=md.dataFrames['NodeRestraintAssignment'].append(pd.DataFrame({
+        'U1':r[0],
+        'U2':r[1],
+        'U3':r[2],
+        'R1':r[3],
+        'R2':r[4],
+        'R3':r[5],
+        },index=[str(node)])) 
     
 def SetSpring():
     return False

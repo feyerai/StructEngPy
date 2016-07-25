@@ -58,7 +58,7 @@ def AddQuick(md,material,profile,commit=True):
         tw=eval(size[2])
         tf=eval(size[3])
         section=IProfile(h,b,tw,tf)
-    
+    CreateTable(md)
     md.dataFrames['BeamPropGeneral']=md.dataFrames['BeamPropGeneral'].append(pd.DataFrame({
         'Material':material,
         'Shape':'I',

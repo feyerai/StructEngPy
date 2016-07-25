@@ -30,7 +30,6 @@ class Model:
         nodedf=DataManager.Assembling.GetNodes(self.database)
         beamdf=DataManager.Assembling.GetBeamStiffness(self.database)
         #*************************************************Modeling**************************************************/
-        
         n=nodedf.shape[0]
         # Dynamic space allocate
         Kmat = np.zeros((n*6, n*6))
@@ -42,7 +41,7 @@ class Model:
         nid = 0
         nodedf['hid']=pd.Series(range(nodedf.shape[0]),index=nodedf.index)#hidden ID
             
-        for node in nodes:
+        for idx,row in nodedf.iterrows():
             node.id = nid
             load = np.array(node.load)
             Fvec[nid * 6: nid * 6 + 6] = np.dot(node.TransformMatrix().transpose(),load)
@@ -99,6 +98,20 @@ class Model:
             Mmat[j*6:j*6+6, j*6:j*6+6] += Mejj
 
             nid+=1
+        #Should iterate to set force vector for different cases
+        
+        for idx,row in nodedf.iterrows():
+            nid=row['hid']
+            load = np.array(node.load)
+            Fvec[nid * 6: nid * 6 + 6] = np.dot(node.TransformMatrix().transpose(),load)
+            for i in range(6):
+                if node.disp[i] != 0:
+                    Dvec[nid * 6 + i] = node.disp[i]
+            
+        for idx,row in beamdf.iterrows():
+            #Assemble nodal force vector
+            Fvec[i*6:i*6+6] += np.dot(Vt,rij[:6])
+            Fvec[j*6:j*6+6] += np.dot(Vt,rij[6:])
         
         scipy.io.mmwrite(path+'K.mtx',sp.coo_matrix(Kmat))
         scipy.io.mmwrite(path+'M.mtx',sp.coo_matrix(Mmat))
@@ -346,40 +359,41 @@ class Model:
         sections.append(Section.Section(materials[0], 4.800E-3, 1.537E-7, 3.196E-5, 5.640E-6))
         nodes.append(Node.Node(0, 0, 0))
         nodes.append(Node.Node(5, 0, 0))
+        nodes.append(Node.Node(10,0, 0))
         for i in range(len(nodes)-1):
             beams.append(Beam.Beam(nodes[i], nodes[i+1], sections[0]))
-        #loads
-        #double f[6] = { 0,0,-100000,0,0,0 }
         qi=(0,0,-10,0,0,0)
         qj=(0,0,-10,0,0,0)
-        #double d[6] = { 1,0,0,0,0,0 }
         beams[0].SetLoadDistributed(qi, qj)
-        #beams[3].SetLoadDistributed(qi, qj)
-        #nodes[3].SetLoad(f)
-        #nodes[0].SetDisp(d)
-        #supports
         res1 = [True]*6
         res2 = [False]*6
         res3 = [False,True,True,True,True,True]
         nodes[0].SetRestraints(res1)
         nodes[1].SetRestraints(res2)
-        #nodes[5].SetRestraints(res1)
-        #releases
-        #beams[3].releaseJ[4] = True
-#        self.beams[3].releaseJ[5] = True
         #*************************************************Modeling**************************************************/
         ID=0
         ns=[]
         for node in nodes:
             ns.append([ID,node.x,node.y,node.z])
-            ID+=1        
-        DataManager.Definition.Properties.Materials.CreateTable(self.data)
-        DataManager.Definition.Properties.Materials.AddQuick(self.data,'GB','Q345')        
-        DataManager.Definition.Properties.BeamSections.CreateTable(self.data)
-        DataManager.Definition.Properties.BeamSections.AddQuick(self.data,'Q345','H400x200x12x14')
-        DataManager.Modeling.Nodes.AddCartesian(self.data,ns)
-        DataManager.Modeling.Beams.AddBeams(self.data,[(1,0,1,'H400x200x12x14')])
-        DataManager.Modeling.Beams.SetLoadForce(self.data,1,'D',[0,0,-100,0,0,0],[0,0,-100,0,0,0])
+            ID+=1
+            
+        md=self.data
+        #Define material
+        DataManager.Definition.Properties.Materials.AddQuick(md,'GB','Q345')
+        #Define section
+        DataManager.Definition.Properties.BeamSections.AddQuick(md,'Q345','H400x200x12x14')
+        #Define load case
+        DataManager.Definition.LoadCases.StaticLinear.SetCase(md,'SD')
+        #Add nodes
+        DataManager.Modeling.Nodes.AddCartesian(md,ns)
+        #Add beams
+        DataManager.Modeling.Beams.AddBeams(md,[(1,0,1,'H400x200x12x14')])
+        DataManager.Modeling.Beams.AddBeams(md,[(1,1,2,'H400x200x12x14')])
+        #Set loads
+        DataManager.Modeling.Nodes.SetLoadForce(md,1,'SD',[0,0,-10,0,0,0])
+        #Set restraints
+        DataManager.Modeling.Nodes.SetRestraints(md,0,res2)
+        DataManager.Modeling.Nodes.SetRestraints(md,2,res2)
         self.Save()
         
         

@@ -48,6 +48,7 @@ def AddQuick(md,std,grade):
     md: ModelData
     std： GB as Chinese standard
     """
+    CreateTable(md)
     if std=='GB':
         if grade=='Q345':
             md.dataFrames['MaterialPropertiesGeneral']=md.dataFrames['MaterialPropertiesGeneral'].append(pd.DataFrame({
