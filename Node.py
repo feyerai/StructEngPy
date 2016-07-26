@@ -9,6 +9,9 @@ import CoordinateSystem
 
 class Node:
     def __init__(self,x,y,z):
+        """
+        x,y,z: coordinates of nodes
+        """
         self.x=x
         self.y=y
         self.z=z

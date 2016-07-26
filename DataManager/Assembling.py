@@ -51,11 +51,12 @@ def GetBeamSections(db):
 def GetNodes(db):
     """
     db: sqlite data base\n
-    return: dataframe of node coordinates
+    return: dataframe of node coordinates with HID
     """
     try:
         conn=sqlite3.connect(db)
         df=pd.read_sql('SELECT * FROM NodeCoordinates',conn,index_col='index')
+        df['HID']=range(df.shape[0])
     except Exception as e:
         print(e)
         return None
@@ -81,7 +82,7 @@ def GetBeams(db):
 def GetBeamStiffness(db):
     """
     md: ModelData object..\n
-    return: dataframe of beam stifness info
+    return: dataframe of beam stifness info with HID
     """
     mdf=GetMaterialBasic(db) #material
     bsdf=GetBeamSections(db) #section
@@ -110,17 +111,26 @@ def GetBeamStiffness(db):
     sdf['GJ']=pd.Series(GJ,index=bsdf.index)
     
     length=[]
+    bEA=[]
+    bEI33=[]
+    bEI22=[]
+    bGJ=[]
     for idx,row in cdf.iterrows():
         n1=ndf.ix[row['NodeI']]
         n2=ndf.ix[row['NodeJ']]
         length.append(np.sqrt((n1['X']-n2['X'])**2+(n1['Y']-n2['Y'])**2+(n1['Y']-n2['Y'])**2))
+        bEA.append()
     
-    df=pd.DataFrame({'L':length},index=cdf.index)
+    df=cdf.copy()
+    df['L']=pd.Series(length,index=cdf.index)
+    for sec in bsdf[]:
     df['EA']=sdf['EA']
     df['EI33']=sdf['EI33']
     df['EI22']=sdf['EI22']
-    df['GJ']=sdf['GJ'] 
+    df['GJ']=sdf['GJ']
+    df['HID']=range(df.shape[0])
     return df
 
 if __name__=='__main__':
-    mdf=GetMaterialBasic('F:\\Test\\Test.sqlite')    
+    mdf=GetBeamStiffness('F:\\Test\\Test.sqlite')    
+    

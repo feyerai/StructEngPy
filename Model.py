@@ -26,7 +26,8 @@ class Model:
         """
         Assemble matrix
         Writing the matrix to the disk
-        """                
+        """        
+                
         nodedf=DataManager.Assembling.GetNodes(self.database)
         beamdf=DataManager.Assembling.GetBeamStiffness(self.database)
         #*************************************************Modeling**************************************************/
@@ -36,24 +37,28 @@ class Model:
         Mmat = np.zeros((n*6, n*6))
         Fvec = np.zeros(n*6)
         Dvec = np.zeros(n*6)
-
+        #use dictionary to improve random access performance
+        nodes={}
+        beams={}
+        quads={}
         #Nodal load and displacement, and reset the index
-        nid = 0
-        nodedf['hid']=pd.Series(range(nodedf.shape[0]),index=nodedf.index)#hidden ID
-            
         for idx,row in nodedf.iterrows():
-            node.id = nid
+            node=Node.Node(row['X'],row['Y'],row['Z'])
+            hid=row['HID']
             load = np.array(node.load)
-            Fvec[nid * 6: nid * 6 + 6] = np.dot(node.TransformMatrix().transpose(),load)
+            Fvec[hid * 6: hid * 6 + 6] = np.dot(node.TransformMatrix().T,load)
             for i in range(6):
                 if node.disp[i] != 0:
-                    Dvec[nid * 6 + i] = node.disp[i]
-            nid+=1
-        nid = 0
+                    Dvec[hid * 6 + i] = node.disp[i]
+            nodes[hid]=node
         
         #Beam load and displacement, and reset the index
-        for beam in self.beams:
-            beam.Id = nid
+        for idx,row in beamdf.iterrows():
+            nodeI=row['NodeI']
+            nodeJ=row['NodeJ']
+            beam=Beam.Beam()
+            hid=row['HID']
+            beams[hid]=beam
             i = beam.nodeI.id
             j = beam.nodeJ.id
             T=np.matrix(beam.TransformMatrix())
@@ -97,7 +102,6 @@ class Model:
             Mmat[j*6:j*6+6, i*6:i*6+6] += Meji
             Mmat[j*6:j*6+6, j*6:j*6+6] += Mejj
 
-            nid+=1
         #Should iterate to set force vector for different cases
         
         for idx,row in nodedf.iterrows():
@@ -387,14 +391,14 @@ class Model:
         #Add nodes
         DataManager.Modeling.Nodes.AddCartesian(md,ns)
         #Add beams
-        DataManager.Modeling.Beams.AddBeams(md,[(1,0,1,'H400x200x12x14')])
+        DataManager.Modeling.Beams.AddBeams(md,[(0,0,1,'H400x200x12x14')])
         DataManager.Modeling.Beams.AddBeams(md,[(1,1,2,'H400x200x12x14')])
         #Set loads
         DataManager.Modeling.Nodes.SetLoadForce(md,1,'SD',[0,0,-10,0,0,0])
         #Set restraints
         DataManager.Modeling.Nodes.SetRestraints(md,0,res2)
         DataManager.Modeling.Nodes.SetRestraints(md,2,res2)
-        self.Save()
+#        self.Save()
         
         
 if __name__=='__main__':     

@@ -10,6 +10,10 @@ import CoordinateSystem
 
 class Beam:
     def __init__(self,i, j, sec):
+        """
+        i: start node
+        j: end node
+        """
         self.nodeI=i
         self.nodeJ=j
         self.loadI=[False]*6

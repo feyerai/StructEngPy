@@ -30,7 +30,7 @@ def SetCase(md,case):
         })
         
     md.dataFrames['LCDefinintions']=md.dataFrames['LCDefinintions'].append(pd.DataFrame({
-        'Type':loadType,
+        'Type':loadtype,
         'InitialCond':plc,
         'ModalCase':modalCase,
         'BaseCase':baseCase,
@@ -40,7 +40,7 @@ def SetCase(md,case):
         'RunCase':'',
         'GUID':'',
         'Notes':''
-        },index=case))
+        },index=[case]))
     
 def SetLoads(md,name,loadtype):
     return False

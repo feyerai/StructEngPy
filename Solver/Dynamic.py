@@ -388,30 +388,57 @@ def Test():
     df2.plot('t','u')
     
 def MTest():
-    #Test with the mode-decomposite-method result in Zhu's Structural Mechanics p.134
-    m=2e5
-    k=200e6
-    t=np.arange(0.01,10,0.01)
-    A=0.1    
-    y=100*A*np.sin(10*t)
-    F=np.array([1.5*m*y,m*y,1.5*m*y]).T   
+#    #Test with the mode-decomposite-method result in Zhu's Structural Mechanics p.134
+#    m=2e5
+#    k=200e6
+#    t=np.arange(0.01,10,0.01)
+#    A=0.1    
+#    y=100*A*np.sin(10*t)
+#    F=np.array([1.5*m*y,m*y,1.5*m*y]).T   
+#    K=np.array([
+#    [2*k,  -k,  0],
+#    [ -k, 2*k, -k],
+#    [  0,  -k,  k]
+#    ])
+#    M=np.array([
+#    [1.5*m, 0,     0],
+#    [    0, m,     0],
+#    [    0, 0, 1.5*m]
+#    ])
+#    C=np.zeros((3,3))
+#    msys=MDOFSystem(M,K,C)
+#    u0=v0=a0=np.zeros(3)
+#    df1=msys.NewmarkBeta(t,F,u0,v0,a0,beta=0.25,gamma=0.5)
+#    df2=msys.WilsonTheta(t,F,u0,v0,a0,beta=0.25,gamma=0.5,theta=1.42)
+#    df3=msys.ModalDecomposition(t,F,u0,v0,a0,xi=0)
+#    return df1,df2,df3    
+    m=1
+    k=100e3
     K=np.array([
     [2*k,  -k,  0],
     [ -k, 2*k, -k],
     [  0,  -k,  k]
     ])
     M=np.array([
-    [1.5*m, 0,     0],
-    [    0, m,     0],
-    [    0, 0, 1.5*m]
+    [m, 0, 0],
+    [0, m, 0],
+    [0, 0, m]
     ])
-    C=np.zeros((3,3))
+    DOF=3
+    C=np.zeros((DOF,DOF))
     msys=MDOFSystem(M,K,C)
-    u0=v0=a0=np.zeros(3)
-    df1=msys.NewmarkBeta(t,F,u0,v0,a0,beta=0.25,gamma=0.5)
-    df2=msys.WilsonTheta(t,F,u0,v0,a0,beta=0.25,gamma=0.5,theta=1.42)
-    df3=msys.ModalDecomposition(t,F,u0,v0,a0,xi=0)
-    return df1,df2,df3
+    w,f,T,mode=msys.EigenMode(DOF)
+    M_=np.dot(np.dot(mode.T,M),mode)#generalized mass
+    px=[]
+    Vx=[]
+    Xm=[]
+    mx=np.diag(M)
+    for i in range(len(mode)):
+        px.append(-np.dot(mode[:,i].T,mx))
+        Vx.append(px[-1]**2)
+        Xm.append(Vx[-1]/3/m)
+    spec=(t,f)
+    a=np.interp(T[i],t,f)
     
 def ETest():
     #Test with the mode-decomposite-method result in Zhu's Structural Mechanics p.134
@@ -437,28 +464,30 @@ def ETest():
     df=msys.EigenMode(1)
     return df
 
+#if __name__=='__main__':
+#    df1,df2,df3=MTest()
+#    sdf1=pd.DataFrame(index=df1.t)
+#    sdf2=pd.DataFrame(index=df2.t)
+#    sdf3=pd.DataFrame(index=df3.t)
+#    for j in range(3):
+#        u0=[]
+#        u1=[]
+#        for i in df1['u']:
+#            u0.append(i[j])
+#        for i in df2['u']:        
+#            u1.append(i[j])
+#        for i in df3['u']:        
+#            u1.append(i[j])
+#        sdf1[str(j)]=u0
+#        sdf2[str(j)]=u1
+#    u3=[]
+#    for i in df3['u']:        
+#        u3.append(i[j])
+#    sdf3['u']=u3
+#    sdf1.plot()
+#    sdf2.plot()
+#    sdf3.plot()
+##    df=ETest()
 if __name__=='__main__':
-    df1,df2,df3=MTest()
-    sdf1=pd.DataFrame(index=df1.t)
-    sdf2=pd.DataFrame(index=df2.t)
-    sdf3=pd.DataFrame(index=df3.t)
-    for j in range(3):
-        u0=[]
-        u1=[]
-        for i in df1['u']:
-            u0.append(i[j])
-        for i in df2['u']:        
-            u1.append(i[j])
-        for i in df3['u']:        
-            u1.append(i[j])
-        sdf1[str(j)]=u0
-        sdf2[str(j)]=u1
-    u3=[]
-    for i in df3['u']:        
-        u3.append(i[j])
-    sdf3['u']=u3
-    sdf1.plot()
-    sdf2.plot()
-    sdf3.plot()
-#    df=ETest()
+    MTest()
 
