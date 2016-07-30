@@ -6,6 +6,7 @@ Created on Fri Jun 24 16:32:51 2016
 """
 
 import pandas as pd
+import sqlite3
     
 def AddCartesian(md,nodes):
     """
@@ -121,8 +122,35 @@ def SetRestraints(md,node,r):
 def SetSpring():
     return False
         
-def GetCoordCartesian():
-    return False        
+def GetCoordCartesian(db):
+    """
+    db: sqlite data base\n
+    return: dataframe of node coordinates
+    """
+    try:
+        conn=sqlite3.connect(db)
+        df=pd.read_sql('SELECT * FROM NodeCoordinates',conn,index_col='index')
+    except Exception as e:
+        print(e)
+        return None
+    finally:
+        conn.close()    
+    return df 
+
+def GetRestraints(db):
+    """
+    db: sqlite data base\n
+    return: dataframe of node Restraints
+    """
+    try:
+        conn=sqlite3.connect(db)
+        df=pd.read_sql('SELECT * FROM NodeRestraintAssignment',conn,index_col='index')
+    except Exception as e:
+        print(e)
+        return None
+    finally:
+        conn.close()  
+    return df
 
 if __name__=='__main__':
     df=pd.read_csv('d:\\testnode.csv',header=None)

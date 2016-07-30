@@ -1,21 +1,123 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jun 22 22:17:28 2016
+Created on Sat Jul 30 13:31:10 2016
 
 @author: HZJ
 """
-import numpy as np
-import scipy.sparse as sp
-import CoordinateSystem
 
-class Beam:
-    def __init__(self,idx, i, j, sec):
+import numpy as np
+import scipy as sp
+
+class CoordinateSystem(object):
+    def __init__(self,origin, pt1, pt2):
         """
-        idx: index of the beam
+        origin: 3x1 vector
+        pt1: 3x1 vector
+        pt2: 3x1 vector
+        """
+        self.origin=origin    
+        vec1 = np.array([pt1[0] - origin[0] , pt1[1] - origin[1] , pt1[2] - origin[2]])
+        vec2 = np.array([pt2[0] - origin[0] , pt2[1] - origin[1] , pt2[2] - origin[2]])
+        cos = np.dot(vec1, vec2)/np.linalg.norm(vec1)/np.linalg.norm(vec2)
+        if  cos == 1 or cos == -1:
+            raise Exception("Three points should not in a line!!")        
+        self.x = vec1/np.linalg.norm(vec1)
+        z = np.cross(vec1, vec2)
+        self.z = z/np.linalg.norm(z)
+        self.y = np.cross(self.z, self.x)
+    
+    def SetBy3Pts(self,origin, pt1, pt2):
+        """
+        origin: tuple 3
+        pt1: tuple 3
+        pt2: tuple 3
+        """
+        self.origin=origin    
+        vec1 = np.array([pt1[0] - origin[0] , pt1[1] - origin[1] , pt1[2] - origin[2]])
+        vec2 = np.array([pt2[0] - origin[0] , pt2[1] - origin[1] , pt2[2] - origin[2]])
+        cos = np.dot(vec1, vec2)/np.linalg.norm(vec1)/np.linalg.norm(vec2)
+        if  cos == 1 or cos == -1:
+            raise Exception("Three points should not in a line!!")        
+        self.x = vec1/np.linalg.norm(vec1)
+        z = np.cross(vec1, vec2)
+        self.z = z/np.linalg.norm(z)
+        self.y = np.cross(self.z, self.x)
+    
+    def SetOrigin(self,x, y, z):
+        """
+        origin: tuple 3
+        pt1: tuple 3
+        pt2: tuple 3
+        """
+        self.origin = (x,y,z)
+    
+    def AlignWithGlobal(self):
+        self.x=np.array([1,0,0])
+        self.y=np.array([0,1,0])
+        self.z=np.array([0,0,1])
+    
+    def TransformMatrix(self):
+        x=self.x
+        y=self.y
+        z=self.z
+        V=np.array([[x[0],y[0],z[0]],
+                  [x[1],y[1],z[1]],
+                  [x[2],y[2],z[2]]])
+        return V.transpose()
+        
+class Node(object):
+    def __init__(self,idx,x,y,z,HID):
+        """
+        x,y,z: coordinates of nodes
+        """
+        self.idx=idx
+        self.x=x
+        self.y=y
+        self.z=z
+        self.HID=HID
+        o=[x,y,z]
+        pt1=[x+1,y,z]
+        pt2=[x,y+1,z]
+        self.localCsys=CoordinateSystem(o,pt1,pt2)
+        self.restraints=[False]*6
+        self.load=[False]*6
+        self.disp=[False]*6
+        
+    def TransformMatrix(self):
+        V=self.localCsys.TransformMatrix()
+        V_=np.zeros((6,6))
+        V_[:3,:3]=V_[3:,3:]=V
+        return V_
+
+    def InitializeCsys(self):
+        self.localCsys.AlignWithGlobal();
+
+    def SetLoad(self,load):
+        """
+        load: a number vector indicates a nodal load.
+        """
+        self.load=load
+
+    def SetDisp(self,disp):
+        """
+        load: a number vector indicates a nodal displacement.
+        """
+        self.disp=disp
+
+    def SetRestraints(self,res):
+        """
+        res: a boolean vector indicates a nodal displacement.
+        """
+        self.restraints=res
+        
+class Beam(object):
+    def __init__(self,idx,i,j,sec,HID):
+        """
         i: start node
         j: end node
         """
         self.idx=idx
+        self.HID=HID
         self.nodeI=i
         self.nodeJ=j
         self.loadI=[False]*6
@@ -32,7 +134,7 @@ class Beam:
             pt2[0] += 1
         else:
             pt2[2] += 1
-        self.localCsys = CoordinateSystem.CoordinateSystem(o, pt1, pt2)
+        self.localCsys = CoordinateSystem(o, pt1, pt2)
 
         #Initialize local stiffness matrix
         l = self.Length()
@@ -319,16 +421,3 @@ class Beam:
         """
         self.loadI=qi
         self.loadJ=qj
-
-
-if __name__=='__main__':
-    import Node
-    import Material
-    import Section
-    m = Material.Material(2.000E11, 0.3, 7849.0474, 1.17e-5)
-    s = Section.Section(m, 4.800E-3, 1.537E-7, 3.196E-5, 5.640E-6)
-    n1=Node.Node(1,2,3)
-    n2=Node.Node(2,3,4)
-    b=Beam(n1,n2,s)
-    
-    

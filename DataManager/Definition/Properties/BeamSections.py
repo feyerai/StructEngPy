@@ -90,7 +90,7 @@ def AddQuick(md,material,profile,commit=True):
         'WMod':0,
         'GUID':'0',
         'Notes':0
-        },index=[profile[0]]))
+        },index=[profile]))
 
 
 class Section:

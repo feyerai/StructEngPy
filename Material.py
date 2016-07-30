@@ -7,6 +7,12 @@ Created on Thu Jun 23 21:30:59 2016
 
 class Material:
     def __init__(self,E,mu,gamma,alpha):
+        """
+        E\n
+        mu\n
+        gamma\n
+        alpha
+        """
         self.E = E
         self.mu = mu
         self.gamma = gamma

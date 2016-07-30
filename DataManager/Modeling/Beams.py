@@ -5,6 +5,7 @@ Created on Fri Jun 24 16:32:51 2016
 @author: huan
 """
 import pandas as pd
+import sqlite3
     
 def AddBeams(md,beams):
     """
@@ -141,6 +142,39 @@ def SetReleases(md,beam,resI,resJ):
     
 def SetSection():
     return False
+    
+def GetReleases(db):
+    return False
+    
+def GetBeamConnectivity(db):
+    """
+    db: sqlite data base\n
+    return: dataframe of beam connectivities
+    """
+    try:
+        conn=sqlite3.connect(db)
+        df=pd.read_sql('SELECT * FROM ConnectivityBeam',conn,index_col='index')
+    except Exception as e:
+        print(e)
+        return None
+    finally:
+        conn.close()
+    return df
+    
+def GetBeamSectionAssignments(db):
+    """
+    db: sqlite data base\n
+    return: dataframe of beam section assignments
+    """
+    try:
+        conn=sqlite3.connect(db)
+        df=pd.read_sql('SELECT * FROM BeamSectionAssignments',conn,index_col='index')
+    except Exception as e:
+        print(e)
+        return None
+    finally:
+        conn.close()
+    return df
 
 if __name__=='__main__':
     df=pd.read_csv('d:\\testnode.csv',header=None)

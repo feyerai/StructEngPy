@@ -8,10 +8,11 @@ import numpy as np
 import CoordinateSystem
 
 class Node:
-    def __init__(self,x,y,z):
+    def __init__(self,idx,x,y,z):
         """
         x,y,z: coordinates of nodes
         """
+        self.idx=idx
         self.x=x
         self.y=y
         self.z=z

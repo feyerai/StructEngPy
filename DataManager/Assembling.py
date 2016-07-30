@@ -6,9 +6,16 @@ Created on Fri Jul  1 12:30:31 2016
 
 This package preprocess the relative parameters for analysis.
 """
+import os,sys 
+parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) 
+sys.path.insert(0,parentdir)
+
 import sqlite3
 import pandas as pd
 import numpy as np
+    
+
+    
 
 def GetMaterialBasic(db):
     """
@@ -30,10 +37,10 @@ def GetSteel(db):
     db: sqlite data base\n
     return: dataframe of steel
     """
-    df=md.dataFrames['MaterialPropertiesSteel']
+    df=db.dataFrames['MaterialPropertiesSteel']
     return df
     
-def GetBeamSections(db):
+def GetBeamSectionProp(db):
     """
     db: sqlite data base\n
     return: dataframe of beam sections
@@ -48,36 +55,9 @@ def GetBeamSections(db):
         conn.close()
     return df
 
-def GetNodes(db):
-    """
-    db: sqlite data base\n
-    return: dataframe of node coordinates with HID
-    """
-    try:
-        conn=sqlite3.connect(db)
-        df=pd.read_sql('SELECT * FROM NodeCoordinates',conn,index_col='index')
-        df['HID']=range(df.shape[0])
-    except Exception as e:
-        print(e)
-        return None
-    finally:
-        conn.close()
-    return df
+
     
-def GetBeams(db):
-    """
-    db: sqlite data base\n
-    return: dataframe of beam
-    """
-    try:
-        conn=sqlite3.connect(db)
-        df=pd.read_sql('SELECT * FROM ConnectivityBeam',conn,index_col='index')
-    except Exception as e:
-        print(e)
-        return None
-    finally:
-        conn.close()
-    return df
+
     
 def GetBeamStiffness(db):
     """
@@ -85,7 +65,8 @@ def GetBeamStiffness(db):
     return: dataframe of beam stifness info with HID
     """
     mdf=GetMaterialBasic(db) #material
-    bsdf=GetBeamSections(db) #section
+    bsdf=GetBeamSectionProp(db) #section
+    badf=GetBeamSectionAssignments(db)#section assignment
     cdf=GetBeams(db) #beam connectivity
     ndf=GetNodes(db) #node coordinates
     EA=[]
@@ -119,18 +100,19 @@ def GetBeamStiffness(db):
         n1=ndf.ix[row['NodeI']]
         n2=ndf.ix[row['NodeJ']]
         length.append(np.sqrt((n1['X']-n2['X'])**2+(n1['Y']-n2['Y'])**2+(n1['Y']-n2['Y'])**2))
-        bEA.append()
-    
+        bEA.append(sdf['EA'][badf['Section'][idx]])
+        bEI33.append(sdf['EI33'][badf['Section'][idx]])
+        bEI22.append(sdf['EI22'][badf['Section'][idx]])
+        bGJ.append(sdf['GJ'][badf['Section'][idx]])
     df=cdf.copy()
     df['L']=pd.Series(length,index=cdf.index)
-    for sec in bsdf[]:
-    df['EA']=sdf['EA']
-    df['EI33']=sdf['EI33']
-    df['EI22']=sdf['EI22']
-    df['GJ']=sdf['GJ']
-    df['HID']=range(df.shape[0])
+    df['EA']=pd.Series(bEA,index=cdf.index)
+    df['EI33']=pd.Series(bEI33,index=cdf.index)
+    df['EI22']=pd.Series(bEI22,index=cdf.index)
+    df['GJ']=pd.Series(bGJ,index=cdf.index)
     return df
 
 if __name__=='__main__':
-    mdf=GetBeamStiffness('F:\\Test\\Test.sqlite')    
+    node=GetBeams('F:\\Test\\Test.sqlite')
+    print(node)
     
