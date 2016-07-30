@@ -1,13 +1,149 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jun 22 22:17:28 2016
+Created on Wed Jun 22 21:57:50 2016
 
 @author: HZJ
 """
 import numpy as np
 import scipy.sparse as sp
-import CoordinateSystem
 
+class CoordinateSystem(object):
+    def __init__(self,origin, pt1, pt2):
+        """
+        origin: 3x1 vector
+        pt1: 3x1 vector
+        pt2: 3x1 vector
+        """
+        self.origin=origin    
+        vec1 = np.array([pt1[0] - origin[0] , pt1[1] - origin[1] , pt1[2] - origin[2]])
+        vec2 = np.array([pt2[0] - origin[0] , pt2[1] - origin[1] , pt2[2] - origin[2]])
+        cos = np.dot(vec1, vec2)/np.linalg.norm(vec1)/np.linalg.norm(vec2)
+        if  cos == 1 or cos == -1:
+            raise Exception("Three points should not in a line!!")        
+        self.x = vec1/np.linalg.norm(vec1)
+        z = np.cross(vec1, vec2)
+        self.z = z/np.linalg.norm(z)
+        self.y = np.cross(self.z, self.x)
+    
+    def SetBy3Pts(self,origin, pt1, pt2):
+        """
+        origin: tuple 3
+        pt1: tuple 3
+        pt2: tuple 3
+        """
+        self.origin=origin    
+        vec1 = np.array([pt1[0] - origin[0] , pt1[1] - origin[1] , pt1[2] - origin[2]])
+        vec2 = np.array([pt2[0] - origin[0] , pt2[1] - origin[1] , pt2[2] - origin[2]])
+        cos = np.dot(vec1, vec2)/np.linalg.norm(vec1)/np.linalg.norm(vec2)
+        if  cos == 1 or cos == -1:
+            raise Exception("Three points should not in a line!!")        
+        self.x = vec1/np.linalg.norm(vec1)
+        z = np.cross(vec1, vec2)
+        self.z = z/np.linalg.norm(z)
+        self.y = np.cross(self.z, self.x)
+    
+    def SetOrigin(self,x, y, z):
+        """
+        origin: tuple 3
+        pt1: tuple 3
+        pt2: tuple 3
+        """
+        self.origin = (x,y,z)
+    
+    def AlignWithGlobal(self):
+        self.x=np.array([1,0,0])
+        self.y=np.array([0,1,0])
+        self.z=np.array([0,0,1])
+    
+    def TransformMatrix(self):
+        x=self.x
+        y=self.y
+        z=self.z
+        V=np.array([[x[0],y[0],z[0]],
+                  [x[1],y[1],z[1]],
+                  [x[2],y[2],z[2]]])
+        return V.transpose()
+        
+class Material(object):
+    def __init__(self,E,mu,gamma,alpha):
+        """
+        E\n
+        mu\n
+        gamma\n
+        alpha
+        """
+        self.E = E
+        self.mu = mu
+        self.gamma = gamma
+        self.alpha = alpha
+        self.shearModulus = E / 2 / (1 + mu)
+
+    def G(self):
+        return self.shearModulus
+        
+class Section(object):
+    def __init__(self,mat, A, J, I33, I22):
+        self.material = mat
+        self.A = A
+        self.J = J
+        self.I33 = I33
+        self.I22 = I22
+        
+class LoadCase(object):
+    def __init__(self,name,loadType):
+        """
+        name: name of the load case\n
+        type: static,modal,spectrum,time-history
+        """
+        self.name=name
+        self.loadType=loadType
+        
+class Node(object):
+    def __init__(self,idx,x,y,z):
+        """
+        x,y,z: coordinates of nodes
+        """
+        self.idx=idx
+        self.x=x
+        self.y=y
+        self.z=z
+        o=[x,y,z]
+        pt1=[x+1,y,z]
+        pt2=[x,y+1,z]
+        self.localCsys=CoordinateSystem(o,pt1,pt2)
+        self.restraints=[False]*6
+        self.load={}
+        self.disp={}
+        
+    def TransformMatrix(self):
+        V=self.localCsys.TransformMatrix()
+        V_=np.zeros((6,6))
+        V_[:3,:3]=V_[3:,3:]=V
+        return V_
+
+    def InitializeCsys(self):
+        self.localCsys.AlignWithGlobal();
+
+    def SetLoad(self,lc,load):
+        """
+        lc: loadcase\n
+        load: a number vector indicates a nodal load.
+        """
+        self.load[lc]=load
+
+    def SetDisp(self,lc,disp):
+        """
+        lc: loadcase\n
+        load: a number vector indicates a nodal displacement.
+        """
+        self.disp[lc]=disp
+
+    def SetRestraints(self,res):
+        """
+        res: a boolean vector indicates a nodal displacement.
+        """
+        self.restraints=res
+        
 class Beam:
     def __init__(self,idx, i, j, sec):
         """
@@ -18,8 +154,7 @@ class Beam:
         self.idx=idx
         self.nodeI=i
         self.nodeJ=j
-        self.loadI=[False]*6
-        self.loadJ=[False]*6
+        self.load={}
         self.releaseI=[False]*6
         self.releaseJ=[False]*6
         self.section=sec
@@ -32,7 +167,7 @@ class Beam:
             pt2[0] += 1
         else:
             pt2[2] += 1
-        self.localCsys = CoordinateSystem.CoordinateSystem(o, pt1, pt2)
+        self.localCsys = CoordinateSystem(o, pt1, pt2)
 
         #Initialize local stiffness matrix
         l = self.Length()
@@ -220,10 +355,13 @@ class Beam:
     #    #return bij*NodalForceJ()
     #}
 
-    def NodalForce(self):
+    def NodalForce(self,lc):
+        """
+        returns a 12x1 element nodal force vector
+        """
         l = self.Length()
-        loadI=self.loadI
-        loadJ=self.loadJ
+        loadI=self.load[lc][:6]
+        loadJ=self.load[lc][6:]
         #recheck!!!!!!!!!!!!
         #i
         v=np.zeros(12)
@@ -248,53 +386,67 @@ class Beam:
     def LocalMassMatrix(self):
         return self.Mij
 
-    def StaticCondensation(self, kij_bar, rij_bar, mij_bar=None):
+    def StaticCondensation(self, mass=False):
         """
-        kij_bar: 12x12 matrix
-        rij_bar: 12x1 vector
-        mij_bar: 12x12 matrix, if mij_bar==None, mass matrix will not be considered
-        return???refer????
+        return:
+        kij_: 12x12 matrix
+        mij_: 12x12 matrix, if mass==True
         """
-        if mij_bar is None:
+        if mass==False:
             kij=self.Kij
-            rij=self.NodalForce()
-            kij_bar = kij
-            rij_bar = rij
+            kij_ = kij
     
             for n in range(6):
                 if self.releaseI[n] == True:
                     for i in range(12):
                         for j in range(12):
-                            kij_bar[i, j] = kij[i, j] - kij[i, n]* kij[n, j] / kij[n, n]
-                        rij_bar[i] = rij[i] - rij[n] * kij[n, i] / kij[n, n]
+                            kij_[i, j] = kij[i, j] - kij[i, n]* kij[n, j] / kij[n, n]
                 if self.releaseJ[n] == True:
                     for i in range(12):
                         for j in range(12):
-                            kij_bar[i, j] = kij[i, j] - kij[i, n + 6]* kij[n + 6, j] / kij[n + 6, n + 6]
-                        rij_bar[i] = rij[i] - rij[n + 6] * kij[n + 6, i] / kij[n + 6, n + 6]
-            return kij_bar, rij_bar
+                            kij_[i, j] = kij[i, j] - kij[i, n + 6]* kij[n + 6, j] / kij[n + 6, n + 6]
+            return kij_
         else:
             kij=self.Kij
             mij=self.Mij
-            rij=self.NodalForce()
-            kij_bar = kij
-            mij_bar = mij
-            rij_bar = rij
+            kij_ = kij.copy()
+            mij_ = mij.copy()
     
             for n in range(0,6):
                 if self.releaseI[n] == True:
                     for i in range(12):
                         for j in range(12):
-                            kij_bar[i, j] = kij[i, j] - kij[i, n]* kij[n, j] / kij[n, n]
-                            mij_bar[i, j] = mij[i, j] - mij[i, n]* mij[n, j] / mij[n, n]
-                        rij_bar[i] = rij[i] - rij[n] * kij[n, i] / kij[n, n]
+                            kij_[i, j] = kij[i, j] - kij[i, n]* kij[n, j] / kij[n, n]
+                            mij_[i, j] = mij[i, j] - mij[i, n]* mij[n, j] / mij[n, n]
                 if self.releaseJ[n] == True:
                     for i in range(12):
                         for j in range(12):
-                            kij_bar[i, j] = kij[i, j] - kij[i, n + 6]* kij[n + 6, j] / kij[n + 6, n + 6]
-                            mij_bar[i, j] = mij[i, j] - mij[i, n + 6]* mij[n + 6, j] / mij[n + 6, n + 6]
-                        rij_bar[i] = rij[i] - rij[n + 6] * kij[n + 6, i] / kij[n + 6, n + 6]
-            return kij_bar, rij_bar, mij_bar
+                            kij_[i, j] = kij[i, j] - kij[i, n + 6]* kij[n + 6, j] / kij[n + 6, n + 6]
+                            mij_[i, j] = mij[i, j] - mij[i, n + 6]* mij[n + 6, j] / mij[n + 6, n + 6]
+            return kij_, mij_
+            
+    def LoadCondensation(self,lc):
+        """
+        lc: loadcase
+        return???refer????
+        """
+        kij=self.Kij
+        rij=self.NodalForce(lc)
+        kij_ = kij.copy()
+        rij_ = rij.copy()
+
+        for n in range(6):
+            if self.releaseI[n] == True:
+                for i in range(12):
+                    for j in range(12):
+                        kij_[i, j] = kij[i, j] - kij[i, n]* kij[n, j] / kij[n, n]
+                    rij_[i] = rij[i] - rij[n] * kij[n, i] / kij[n, n]
+            if self.releaseJ[n] == True:
+                for i in range(12):
+                    for j in range(12):
+                        kij_[i, j] = kij[i, j] - kij[i, n + 6]* kij[n + 6, j] / kij[n + 6, n + 6]
+                    rij_[i] = rij[i] - rij[n + 6] * kij[n + 6, i] / kij[n + 6, n + 6]
+        return rij_
 
     def CalculateElmForce(self,uij,fij):
         """
@@ -313,22 +465,10 @@ class Beam:
         T[:3,:3] =T[3:6,3:6]=T[6:9,6:9]=T[9:,9:]= V
         return T
 
-    def SetLoadDistributed(self,qi, qj):
+    def SetLoadDistributed(self,lc,q):
         """
-        qi,qj: 6x1 vector
+        lc: loadcase\n
+        q: 12x1 vector represent distributed forces
         """
-        self.loadI=qi
-        self.loadJ=qj
-
-
-if __name__=='__main__':
-    import Node
-    import Material
-    import Section
-    m = Material.Material(2.000E11, 0.3, 7849.0474, 1.17e-5)
-    s = Section.Section(m, 4.800E-3, 1.537E-7, 3.196E-5, 5.640E-6)
-    n1=Node.Node(1,2,3)
-    n2=Node.Node(2,3,4)
-    b=Beam(n1,n2,s)
-    
-    
+        self.load[lc]=q
+        

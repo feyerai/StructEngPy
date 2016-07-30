@@ -151,6 +151,21 @@ def GetRestraints(db):
     finally:
         conn.close()  
     return df
+    
+def GetLoadForce(db):
+    """
+    db: sqlite data base\n
+    return: dataframe of noddal forces
+    """
+    try:
+        conn=sqlite3.connect(db)
+        df=pd.read_sql('SELECT * FROM NodalLoads_Force',conn,index_col='index')
+    except Exception as e:
+        print(e)
+        return None
+    finally:
+        conn.close()    
+    return df 
 
 if __name__=='__main__':
     df=pd.read_csv('d:\\testnode.csv',header=None)

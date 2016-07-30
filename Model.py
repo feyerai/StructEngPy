@@ -11,7 +11,8 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as sl
 from scipy import linalg
 import pandas as pd
-import Material,Section,Node,Beam
+from ObjectModel import *
+from Solver import Static
 import DataManager
 
 class Model:
@@ -40,14 +41,14 @@ class Model:
         nodes=[]
         beams=[]
         
-        materials.append(Material.Material(2.000E11, 0.3, 7849.0474, 1.17e-5))
+        materials.append(Material(2.000E11, 0.3, 7849.0474, 1.17e-5))
         #H200x150x8x10
-        sections.append(Section.Section(materials[0], 4.800E-3, 1.537E-7, 3.196E-5, 5.640E-6))
-        nodes.append(Node.Node(0, 0, 0, 0))
-        nodes.append(Node.Node(1, 5, 0, 0))
-        nodes.append(Node.Node(2, 10,0, 0))
+        sections.append(Section(materials[0], 4.800E-3, 1.537E-7, 3.196E-5, 5.640E-6))
+        nodes.append(Node(0, 0, 0, 0))
+        nodes.append(Node(1, 5, 0, 0))
+        nodes.append(Node(2, 10,0, 0))
         for i in range(len(nodes)-1):
-            beams.append(Beam.Beam(i, nodes[i], nodes[i+1], sections[0]))
+            beams.append(Beam(i, nodes[i], nodes[i+1], sections[0]))
         qi=(0,0,-10,0,0,0)
         qj=(0,0,-10,0,0,0)
         beams[0].SetLoadDistributed(qi, qj)
@@ -85,31 +86,18 @@ class Model:
         path='F:\\Test\\'
         aModel.Assemble(path)
         aModel.AssembleLoad(path)
+        Static.SolveLinear(aModel,'SD',path)
 
         
-class AnalysisModel(object):
-    """
-    Assembler handles the data read from DataManager and produces nodes and elements.
-    """        
+class AnalysisModel(object):       
     def __init__(self,md): 
         self.materials=self.GetMaterials(md)                
         self.beamSections=self.GetBeamSections(md)
         self.nodes=self.GetNodes(md)
         self.beams=self.GetBeams(md)
         self.quads=self.GetQuads(md)
-        
-#        for idx,row in self.nodedf.iterrows():
-#            node=Node.Node(row['X'],row['Y'],row['Z'])
-#            hid=row['HID']
-#            self.nodes[hid]=node
-#            
-#        for idx,row in beamdf.iterrows():
-#            nodeI=self.node[row['NodeI']]
-#            nodeJ=self.node[row['NodeJ']]
-#            section=row['Section']
-#            beam=Beam.Beam(nodeI,nodeJ,)
-#            hid=row['HID']
-#            self.beams[hid]=beam
+        self.loadcases=self.GetLoadCases(md)
+
     def GetMaterials(self,md):
         """
         returns a dictionary of node objects
@@ -121,7 +109,7 @@ class AnalysisModel(object):
         df=pd.DataFrame.join(df,ms)
         materials={}
         for idx,row in df.iterrows():
-            material=Material.Material(row['E1'],row['G12'],row['UnitWeight'],row['A1'])
+            material=Material(row['E1'],row['G12'],row['UnitWeight'],row['A1'])
             materials[idx]=material
         return materials
         
@@ -132,7 +120,7 @@ class AnalysisModel(object):
         df=md.dataFrames['BeamPropGeneral']
         beamSections={}
         for idx,row in df.iterrows():
-            beamSection=Section.Section(self.materials[row['Material']],row['Area'],row['TorsConst'],row['I33'],row['I22'])
+            beamSection=Section(self.materials[row['Material']],row['Area'],row['TorsConst'],row['I33'],row['I22'])
             beamSections[idx]=beamSection
         return beamSections
         
@@ -142,10 +130,12 @@ class AnalysisModel(object):
         """
         coor=md.dataFrames['NodeCoordinates']
         rest=md.dataFrames['NodeRestraintAssignment']
+        load=md.dataFrames['NodalLoads_Force']
+#        disp=md.dataFrames[]
         nodes={}
         HID=0
         for idx,row in coor.iterrows():
-            node=Node.Node(HID,row['X'],row['Y'],row['Z'])
+            node=Node(HID,row['X'],row['Y'],row['Z'])
             nodes[idx]=node
             HID+=1           
         for idx,row in rest.iterrows():
@@ -156,6 +146,10 @@ class AnalysisModel(object):
                 else:
                     res.append(True)
             nodes[idx].SetRestraints(res)
+        for idx,row in load.iterrows():
+            lc=row['LC']
+            load=[row['P1'],row['P2'],row['P3'],row['M1'],row['M2'],row['M3']]
+            nodes[row['Node']].SetLoad(lc,load)
         return nodes
         
     def GetBeams(self,md):
@@ -168,13 +162,25 @@ class AnalysisModel(object):
         df=pd.DataFrame.join(bc,bs)
         HID=0
         for idx,row in df.iterrows():
-            beam=Beam.Beam(HID,self.nodes[row['NodeI']],self.nodes[row['NodeJ']],self.beamSections[row['Section']])
+            beam=Beam(HID,self.nodes[row['NodeI']],self.nodes[row['NodeJ']],self.beamSections[row['Section']])
             beams[idx]=beam
             HID+=1
         return beams
         
     def GetQuads(self,md):
         return False
+        
+    def GetLoadCases(self,md):
+        """
+        returns a dictionary of loadcase objects
+        """
+        loadcases={}
+        df=md.dataFrames['LCDefinintions']
+        HID=0
+        for idx,row in df.iterrows():
+            loadcases[HID]=LoadCase(idx,row['Type'])
+            HID+=1
+        return loadcases
 
     def Update(self):
         """
@@ -193,26 +199,22 @@ class AnalysisModel(object):
         # Dynamic space allocate
         Kmat = np.zeros((n*6, n*6))
         Mmat = np.zeros((n*6, n*6))
-        Dvec = np.zeros(n*6)
             
         #Beam load and displacement, and reset the index
         for key,beam in self.beams.items():
             i = beam.nodeI.idx
             j = beam.nodeJ.idx
             T=np.matrix(beam.TransformMatrix())
-            Tt = T.transpose()
+            Tt = T.T
 
             #Transform matrix
-            Vl=np.matrix(beam.localCsys.TransformMatrix())
-            V=np.zeros((6, 6))
-            V[:3,:3] =V[3:,3:]= Vl
-            Vt = V.T
+#            Vl=np.matrix(beam.localCsys.TransformMatrix())
+#            V=np.zeros((6, 6))
+#            V[:3,:3] =V[3:,3:]= Vl
+#            Vt = V.T
 
             #Static condensation to consider releases
-            Kij=np.zeros((12, 12))
-            Mij=np.zeros((12, 12))
-            rij=np.zeros(12)
-            Kij, rij, Mij = beam.StaticCondensation(Kij, rij, Mij)
+            Kij, Mij = beam.StaticCondensation(mass=True)
 
             #Assemble Total Stiffness Matrix
             Ke = np.dot(np.dot(Tt,Kij),T)
@@ -235,47 +237,46 @@ class AnalysisModel(object):
             Mmat[i*6:i*6+6, j*6:j*6+6] += Meij
             Mmat[j*6:j*6+6, i*6:i*6+6] += Meji
             Mmat[j*6:j*6+6, j*6:j*6+6] += Mejj
-        
-        for key,node in self.nodes.items():
-            nid=node.idx
-            for i in range(6):
-                if node.disp[i] != 0:
-                    Dvec[nid * 6 + i] = node.disp[i]
                     
         scipy.io.mmwrite(path+'K.mtx',sp.coo_matrix(Kmat))
         scipy.io.mmwrite(path+'M.mtx',sp.coo_matrix(Mmat))
-        scipy.io.mmwrite(path+'D.mtx',sp.coo_matrix(Dvec))
         
-    def AssembleLoad(self,path,lc=''):
+        
+    def AssembleLoad(self,path,lc='SD'):
         """
         Assemble load vector for specified load case
         lc: loadcase
         """
         n=len(self.nodes.keys())
         Fvec = np.zeros(n*6)
+        Dvec = np.zeros(n*6)
         
-        for key,node in self.nodes.items():
+        for node in self.nodes.values():
             nid=node.idx
-            load = np.array(node.load)
-            Fvec[nid * 6: nid * 6 + 6] = np.dot(node.TransformMatrix().T,load)
+            if node.load!={}:
+                load = np.array(node.load[lc])
+                Fvec[nid * 6: nid * 6 + 6] = np.dot(node.TransformMatrix().T,load)
+            if node.disp!={}:
+                disp = np.array(node.disp[lc])
+                Dvec[nid * 6: nid * 6 + 6] = np.dot(node.TransformMatrix().T,disp)
                  
-        for key,beam in self.beams.items():
+        for beam in self.beams.values():
             #Transform matrix
             Vl=np.matrix(beam.localCsys.TransformMatrix())
             V=np.zeros((6, 6))
             V[:3,:3] =V[3:,3:]= Vl
             Vt = V.T
             #Static condensation to consider releases
-            Kij=np.zeros((12, 12))
-            Mij=np.zeros((12, 12))
             rij=np.zeros(12)
-            Kij, rij, Mij = beam.StaticCondensation(Kij, rij, Mij)
+            if beam.load!={}:
+                rij = beam.LoadCondensation(lc)
             #Assemble nodal force vector
             i = beam.nodeI.idx
             j = beam.nodeJ.idx
             Fvec[i*6:i*6+6] += np.dot(Vt,rij[:6])
             Fvec[j*6:j*6+6] += np.dot(Vt,rij[6:])           
         scipy.io.mmwrite(path+'F.mtx',sp.coo_matrix(Fvec))
+        scipy.io.mmwrite(path+'D.mtx',sp.coo_matrix(Dvec))
 
     def isAssembled(self):
 #        if self.Kmat == None:
@@ -288,7 +289,7 @@ class AnalysisModel(object):
     def F(self):
         return self.Fvec
 
-    def EliminateMatrix(self,path,mass=False):
+    def EliminateMatrix(self,lc,path,mass=False):
         """
         return 
         K_bar: sparse matrix
@@ -306,9 +307,9 @@ class AnalysisModel(object):
             Id=np.arange(len(f))
             nRemoved=0
             i=0
-            for node in self.nodes:
+            for node in self.nodes.values():
                 for j in range(6):
-                    if node.restraints[j] == True or node.disp[j] != 0:
+                    if node.restraints[j] == True or lc in node.disp.keys():
                         k=np.delete(k,i*6+j-nRemoved,axis=0)
                         k=np.delete(k,i*6+j-nRemoved,axis=1)
                         f=np.delete(f,i*6+j-nRemoved)
@@ -326,7 +327,7 @@ class AnalysisModel(object):
             Id=np.arange(len(f))
             nRemoved = 0
             i=0
-            for node in self.nodes:
+            for node in self.nodes.values():
                 for j in range(6):
                     if node.restraints[j] == True or node.disp[j]!=0:
                         k=np.delete(k,i*6+j-nRemoved,axis=0)
@@ -342,79 +343,6 @@ class AnalysisModel(object):
             F_ = f
             index = Id
             return K_,M_,F_,Dvec,index
-
-    def SolveLinear(self,path):
-        if not self.isAssembled():
-            raise Exception('Not assemble yet!!')
-        
-        K_bar,F_bar,Dvec,index = self.EliminateMatrix(path)
-        try:
-            #sparse matrix solution         
-            delta_bar = sl.spsolve(K_bar,F_bar)
-            print('HERE!')
-            delta = delta_bar
-            f=np.zeros(len(self.beams)*12)
-           
-            #fill original displacement vector
-            prev = 0
-            for idx in index:
-                gap=idx-prev
-                if gap>0:
-                    delta=np.insert(delta,prev,[0]*gap)
-                prev = idx + 1               
-                if idx==index[-1] and idx!=len(self.nodes)-1:
-                    delta = np.insert(delta,prev, [0]*(len(self.nodes)*6-prev))
-            delta += Dvec
-
-            #calculate element displacement and forces
-            for beam in self.beams:
-                Kij_bar=np.zeros((12, 12))
-                rij_bar=np.zeros((12,1))
-                Kij_bar,rij_bar=beam.StaticCondensation(Kij_bar, rij_bar)
-                uij=np.zeros(12)
-                fij=np.zeros(12)
-                
-                i=0
-                for node in self.nodes:
-                    if node is beam.nodeI:
-                        iend=i
-                    i+=1
-                i=0
-                for node in self.nodes:
-                    if node is beam.nodeJ:
-                        jend=i
-                    i+=1
-                
-                uij[:6]=delta[iend*6:iend*6+6]
-                uij[6:]=delta[jend*6:jend*6+6]
-                uij = np.dot(beam.TransformMatrix(),uij)
-                
-                fij = np.dot(Kij_bar,uij) + beam.NodalForce()
-                for i in range(6):
-                    if beam.releaseI[i] == True:
-                        fij[i] = 0
-                    if beam.releaseJ[i] == True:
-                        fij[i + 6] = 0
-                #beam.ID
-                i=0
-                for b in self.beams:
-                    if beam is b:
-                        bid=i
-                    i+=1
-                f[bid*12:bid*12+12] = fij
-            for n in range(len(self.nodes)):
-                print("Disp of node "+str(n)+':')
-                for i in range(n * 6,n * 6 + 6):
-                   print("delta[%d"%(i - n * 6) +"]=%f"%delta[i])
-
-            for n in range(len(self.beams)):
-                print("Force of beam " +str(n)+ ':')
-                for i in range(n*12,n*12+12):
-                    print("f[%d"%(i - n * 12)+"]=%f"%f[i])
-        except Exception as e:
-            print(e)
-            return False
-        return True
 
     def SolveModal(self,path,k):
         if not self.isAssembled():
